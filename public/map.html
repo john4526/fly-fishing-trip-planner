@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>River Map View</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    html, body, #map {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background: #111827; /* Matches app dark background */
+    }
+    
+    /* Dark mode styling for Leaflet controls */
+    .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+      background-color: rgba(31, 41, 55, 0.9) !important;
+      color: #f3f4f6 !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    }
+    .leaflet-control-zoom {
+      border: none !important;
+    }
+    .leaflet-bar {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    }
+    .leaflet-popup-content-wrapper {
+      background: #1f2937 !important;
+      color: #f9fafb !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .leaflet-popup-tip {
+      background: #1f2937 !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    // Parse query params
+    const params = new URLSearchParams(window.location.search);
+    const lat = parseFloat(params.get('lat')) || 40.1062;
+    const lon = parseFloat(params.get('lon')) || -83.7974;
+    const mode = params.get('mode') || 'satellite';
+    const name = params.get('name') || 'Access Point';
+
+    // Initialize map
+    const map = L.map('map', {
+      zoomControl: true,
+      attributionControl: true
+    }).setView([lat, lon], 15);
+
+    // Define layers
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+    });
+
+    const topoLayer = L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 16,
+      attribution: 'Tiles courtesy of the <a href="https://usgs.gov/" target="_blank">U.S. Geological Survey</a>'
+    });
+
+    // Add active layer based on mode param
+    if (mode === 'terrain') {
+      topoLayer.addTo(map);
+    } else {
+      satelliteLayer.addTo(map);
+    }
+
+    // Add marker
+    const marker = L.marker([lat, lon]).addTo(map);
+    marker.bindPopup(`<b>${name}</b>`).openPopup();
+
+    // Stocking Layer Setup
+    const stockingLayer = L.layerGroup();
+
+    // Listen for messages from parent window to change mode or location dynamically
+    window.addEventListener('message', (event) => {
+      if (!event.data) return;
+
+      if (event.data.type === 'update_map') {
+        const newLat = event.data.lat;
+        const newLon = event.data.lon;
+        const newMode = event.data.mode;
+        const newName = event.data.name;
+
+        // Update center
+        map.setView([newLat, newLon], 15);
+
+        // Update marker
+        marker.setLatLng([newLat, newLon]);
+        marker.bindPopup(`<b>${newName}</b>`).openPopup();
+
+        // Update layer
+        if (newMode === 'terrain') {
+          if (map.hasLayer(satelliteLayer)) {
+            map.removeLayer(satelliteLayer);
+          }
+          topoLayer.addTo(map);
+        } else {
+          if (map.hasLayer(topoLayer)) {
+            map.removeLayer(topoLayer);
+          }
+          satelliteLayer.addTo(map);
+        }
+      }
+
+      if (event.data.type === 'update_stocking') {
+        stockingLayer.clearLayers();
+        const records = event.data.records || [];
+        
+        records.forEach(rec => {
+          // Custom HTML marker using fish emoji
+          const fishIcon = L.divIcon({
+            html: '<div style="font-size: 20px; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.5)); cursor: pointer;">🐟</div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            className: '' // Clears Leaflet's default marker backgrounds/borders
+          });
+
+          const m = L.marker([rec.latitude, rec.longitude], { icon: fishIcon });
+          m.bindPopup(`
+            <div style="font-family: ui-sans-serif, system-ui; font-size: 0.85rem; line-height: 1.4; color: #f9fafb; padding: 0.25rem;">
+              <h4 style="margin: 0 0 0.5rem 0; color: #60a5fa; font-size: 0.95rem; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.25rem;">🐟 ODNR ${rec.species} Stocking</h4>
+              <div style="display: grid; gap: 0.25rem;">
+                <div><b>Location:</b> ${rec.locationName}</div>
+                <div><b>Quantity:</b> ${rec.quantity.toLocaleString()}</div>
+                <div><b>Life Stage:</b> ${rec.lifeStage}</div>
+                <div><b>Year Stocked:</b> ${rec.year}</div>
+                <div><b>Origin Hatchery:</b> ${rec.hatchery}</div>
+              </div>
+            </div>
+          `);
+          stockingLayer.addLayer(m);
+        });
+
+        if (event.data.visible) {
+          stockingLayer.addTo(map);
+        } else {
+          if (map.hasLayer(stockingLayer)) {
+            map.removeLayer(stockingLayer);
+          }
+        }
+      }
+
+      if (event.data.type === 'toggle_stocking') {
+        if (event.data.visible) {
+          stockingLayer.addTo(map);
+        } else {
+          if (map.hasLayer(stockingLayer)) {
+            map.removeLayer(stockingLayer);
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

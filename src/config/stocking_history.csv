@@ -1,0 +1,9 @@
+riverId,locationName,latitude,longitude,species,quantity,lifeStage,year,hatchery
+mad-river,Pimtown Road Access,40.1425,-83.7842,Brown Trout,4500,Yearling (8-10 inches),2025,London State Fish Hatchery
+mad-river,St. Paris Pike Bridge,40.1062,-83.7974,Brown Trout,5200,Yearling (8-10 inches),2024,London State Fish Hatchery
+mad-river,West Liberty Lion's Park,40.2483,-83.7589,Brown Trout,3800,Yearling (8-10 inches),2025,London State Fish Hatchery
+clear-fork,Bellville Bike Path Access,40.6214,-82.5127,Brown Trout,6000,Yearling (7-9 inches),2025,Castalia State Fish Hatchery
+clear-fork,Gatton Rocks Access,40.6133,-82.4735,Brown Trout,5500,Yearling (7-9 inches),2024,Castalia State Fish Hatchery
+chagrin-river,Daniels Park Access,41.6425,-81.4068,Steelhead Trout,15000,Yearling Smolt (6-8 inches),2025,Castalia State Fish Hatchery
+chagrin-river,Rogers Road Metro Park,41.6152,-81.4211,Steelhead Trout,10000,Yearling Smolt (6-8 inches),2024,Castalia State Fish Hatchery
+little-miami,Milford Trailhead,39.1748,-84.2961,Channel Catfish,2500,Fingerling (3-5 inches),2025,Hebron State Fish Hatchery
