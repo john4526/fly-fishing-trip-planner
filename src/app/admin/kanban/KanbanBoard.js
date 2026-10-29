@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import KanbanColumn from "./KanbanColumn";
 import { Bug, Sparkles, CheckCircle } from "lucide-react";
 import styles from "./kanban.module.css";
@@ -151,32 +151,42 @@ const INITIAL_TASKS = [
   }
 ];
 
+const STORAGE_KEY = 'admin_kanban_tasks';
+const CHANGE_EVENT = 'streamplanner-tasks';
+const statuses = ['To Do', 'In Progress', 'On Hold', 'Done', 'Backlog'];
+const subscribe = listener => {
+  window.addEventListener('storage', listener);
+  window.addEventListener(CHANGE_EVENT, listener);
+  return () => { window.removeEventListener('storage', listener); window.removeEventListener(CHANGE_EVENT, listener); };
+};
+const readTasks = () => {
+  try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+};
+const serverSnapshot = () => null;
+function parseTasks(raw) {
+  if (raw === null) return INITIAL_TASKS;
+  const tasks = JSON.parse(raw);
+  if (!Array.isArray(tasks) || !tasks.every(t => t && typeof t.id === 'string' && typeof t.title === 'string' &&
+    typeof t.description === 'string' && statuses.includes(t.status) && ['bug', 'feature', 'chore'].includes(t.type) &&
+    ['low', 'medium', 'high'].includes(t.priority) && Array.isArray(t.acceptanceCriteria) &&
+    t.acceptanceCriteria.every(ac => ac && typeof ac.id === 'string' && typeof ac.text === 'string' && typeof ac.completed === 'boolean'))) {
+    throw new Error('Invalid saved tasks');
+  }
+  return tasks.map(task => task.status === 'Backlog' ? { ...task, status: 'To Do' } : task);
+}
+
 export default function KanbanBoard() {
-  const [tasks, setTasks] = useState([]);
-
-  useEffect(() => {
-    const savedTasks = localStorage.getItem("admin_kanban_tasks");
-    if (savedTasks) {
-      const parsedTasks = JSON.parse(savedTasks);
-      const existingIds = new Set(parsedTasks.map(t => t.id));
-      const newTasksToAdd = INITIAL_TASKS.filter(t => !existingIds.has(t.id));
-      
-      if (newTasksToAdd.length > 0) {
-        const combined = [...parsedTasks, ...newTasksToAdd];
-        setTasks(combined);
-        localStorage.setItem("admin_kanban_tasks", JSON.stringify(combined));
-      } else {
-        setTasks(parsedTasks);
-      }
-    } else {
-      setTasks(INITIAL_TASKS);
-      localStorage.setItem("admin_kanban_tasks", JSON.stringify(INITIAL_TASKS));
-    }
-  }, []);
-
-  const saveTasks = (newTasks) => {
-    setTasks(newTasks);
-    localStorage.setItem("admin_kanban_tasks", JSON.stringify(newTasks));
+  const raw = useSyncExternalStore(subscribe, readTasks, serverSnapshot);
+  const [saveError, setSaveError] = useState('');
+  let tasks;
+  let invalid = false;
+  try { tasks = parseTasks(raw); } catch { tasks = INITIAL_TASKS; invalid = true; }
+  const saveTasks = newTasks => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newTasks));
+      window.dispatchEvent(new Event(CHANGE_EVENT));
+      setSaveError('');
+    } catch { setSaveError('Changes could not be saved in this browser.'); }
   };
 
   const updateTaskStatus = (taskId, newStatus) => {
@@ -215,6 +225,9 @@ export default function KanbanBoard() {
 
   return (
     <div>
+      <p>Tasks are stored only in this browser.</p>
+      {invalid && <p role="alert">Saved tasks could not be read. Showing defaults; the saved data will only be replaced if you edit a task.</p>}
+      {saveError && <p role="alert">{saveError}</p>}
       {/* Stats Bar */}
       <section className={styles.statsBar}>
         <div className={styles.statCard}>

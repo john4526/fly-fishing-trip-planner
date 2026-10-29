@@ -16,5 +16,5 @@ export default async function CorridorPage({ params }) {
     notFound();
   }
 
-  return <CorridorDetails corridor={corridor} stateId={stateId} stateName={state.name} />;
+  return <CorridorDetails key={corridor.id} corridor={corridor} stateId={stateId} stateName={state.name} />;
 }

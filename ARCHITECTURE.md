@@ -1,120 +1,68 @@
 # Architecture Overview
 
-This document outlines the high-level architecture of the Fly Fishing Trip Planner. 
+StreamPlanner uses Next.js 16 App Router and React 19. Server-rendered state and corridor pages read a static seven-state configuration. Client components load public conditions and optionally use Firebase accounts.
 
-## System Context Diagram
-
-The application is built using Next.js (App Router) and uses Firebase for authentication and database services. It aggregates data from several external APIs.
+## Data flow
 
 ```mermaid
-graph TD
-    %% Styling
-    classDef client fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    classDef server fill:#eef2ff,stroke:#6366f1,stroke-width:2px;
-    classDef external fill:#fdf4ff,stroke:#d946ef,stroke-width:2px;
-    classDef firebase fill:#fffbeb,stroke:#f59e0b,stroke-width:2px;
-    classDef static fill:#ecfdf5,stroke:#10b981,stroke-width:2px;
-
-    User([User / Angler])
-
-    subgraph "Next.js Frontend (Client)"
-        Landing[Landing Page Card Grid]:::client
-        StateOverview[State Page / Vector Map]:::client
-        CorridorDetails[Corridor Detail Dashboard]:::client
-        Auth[Auth Context]:::client
-        Map[Leaflet Map Iframe]:::client
-        Admin[Kanban Admin Board]:::client
-    end
-
-    subgraph "Next.js Backend (API Routes)"
-        WeatherAPI[/api/weather/]:::server
-        RiverAPI[/api/river/]:::server
-        ReviewsAPI[/api/reviews/]:::server
-        StockingAPI[/api/stocking/]:::server
-    end
-
-    subgraph "Data & Configuration"
-        StaticConfig[(Rivers & States Config JS)]:::static
-        StockingCSV[(Stocking CSV)]:::static
-        EnvConfig[env.js Validation]:::static
-    end
-
-    subgraph "Firebase Services"
-        FirebaseAuth((Firebase Auth)):::firebase
-        Firestore((Firestore DB)):::firebase
-    end
-
-    subgraph "External APIs"
-        USGS[USGS Water Services API]:::external
-        OpenWeather[OpenWeatherMap API]:::external
-        GooglePlaces[Google Places API]:::external
-    end
-
-    %% User Interactions
-    User -->|Selects State| Landing
-    Landing -->|Navigates| StateOverview
-    StateOverview -->|Selects River| CorridorDetails
-    User -->|Logs In| Auth
-    User -->|Manages Tasks| Admin
-
-    %% Frontend to Backend
-    CorridorDetails -->|Fetches| WeatherAPI
-    CorridorDetails -->|Fetches| RiverAPI
-    CorridorDetails -->|Fetches| ReviewsAPI
-    CorridorDetails -->|Fetches| StockingAPI
-    StateOverview -->|Reads| StaticConfig
-    CorridorDetails -->|Reads| StaticConfig
-
-    %% Auth & DB
-    Auth <--> FirebaseAuth
-    CorridorDetails <-->|Saves Favorites| Firestore
-    Admin <-->|Reads/Writes Tasks| Firestore
-
-    %% Backend to External APIs
-    WeatherAPI -->|Fetches Forecast| OpenWeather
-    RiverAPI -->|Fetches Flow Data| USGS
-    ReviewsAPI -->|Fetches Place Info| GooglePlaces
-    StockingAPI -->|Parses| StockingCSV
-
-    %% Context Flow
-    Auth -.->|Provides User State| CorridorDetails
-    Auth -.->|Secures| Admin
+flowchart TD
+    Config[States and corridors config] --> Landing[Landing page]
+    Config --> State[State overview]
+    Config --> Corridor[Corridor dashboard]
+    Landing --> State --> Corridor
+    Corridor --> Resource[Abortable requests and timed refresh]
+    Resource --> River[/api/river]
+    Resource --> Weather[/api/weather]
+    Resource --> Reviews[/api/reviews]
+    Resource --> Stocking[/api/stocking]
+    River --> USGS[USGS latest continuous observations]
+    Weather --> OM[Open-Meteo primary]
+    Weather --> NWS[NWS hourly fallback]
+    Reviews --> Google[Google Places]
+    Stocking --> CSV[Bundled stocking CSV]
+    State --> StateMap[Leaflet state-map iframe]
+    Corridor --> AccessMap[Leaflet access-map iframe]
+    StateMap --> OSM[OpenStreetMap tiles]
+    AccessMap --> Tiles[Esri satellite and USGS topo tiles]
+    Corridor --> Auth[AuthContext]
+    Auth <--> Firebase[Firebase Auth and trusted token claims]
+    Auth <--> Rules[Owner-only Firestore rules]
+    Rules <--> Favorites[users/uid favorites]
+    Auth -. admin claim .-> Kanban[Admin Kanban UI]
+    Kanban <--> Local[Browser localStorage]
 ```
 
-## Component Details
+## Components and state
 
-### 1. Frontend (Next.js App Router)
-- **Landing Page (`src/app/page.js`)**: A home view displaying state selection cards for Ohio, Michigan, Pennsylvania, West Virginia, Tennessee, North Carolina, and Montana.
-- **State Overview (`src/app/states/[stateId]/page.js`)**: Displays the interactive SVG map (`StateVectorMap.js`) and the state's river corridors list.
-- **Corridor Dashboard (`src/app/states/[stateId]/corridors/[corridorId]/page.js`)**: Renders details for a single corridor (`CorridorDetails.js`), aggregating river gauges, weather, local reports, and access maps.
-- **Context API (`AuthContext`)**: Handles authentication state using Firebase Auth and syncs favorite rivers to Firestore.
-- **Admin Kanban**: A private route accessible only to users with the `isAdmin` flag in Firestore, allowing task tracking.
-- **Maps**: Embeds a Leaflet map via an iframe or native React wrapper, communicating via `postMessage`.
+- `/` lists states. `/states/[stateId]` shows a Leaflet geographic map and corridor links; the columns stack on narrow screens. Unknown state and corridor IDs return not found.
+- `/states/[stateId]/corridors/[corridorId]` renders `CorridorDetails`, keyed by corridor ID so navigation resets selections. `WeatherPanel` handles optional measurements and destination-local dates.
+- `useResource` aborts requests on navigation/unmount and ignores late responses. Recursive timers refresh river data every five minutes and weather every fifteen minutes, with no overlapping polls. A failed refresh preserves the last response and displays an error. Reviews and stocking load once per corridor with retry.
+- `src/lib/river.js` owns observation selection, staleness, and reference-range comparison. Additional gauges only receive a comparison badge if they have their own configured range. A reference range is not a safety determination.
+- `AuthContext` uses Firebase Auth and atomic Firestore favorite updates. It only changes local favorites after the write succeeds, and discards reads belonging to an old session.
+- Admin Kanban changes task status and checklist completion in localStorage. It has no backend administrative API, task creation/deletion UI, or cross-device synchronization. Invalid saved data is reported without overwriting it on load.
 
-### 2. Backend (Next.js Route Handlers)
-To avoid CORS issues and secure API keys, all external data fetches happen server-side:
-- `/api/river`: Proxies requests to the **USGS Water Services API** for streamflow (cfs) and gage height.
-- `/api/weather`: Proxies requests to **OpenWeatherMap** (or returns mock data if keys are missing).
-- `/api/reviews`: Proxies requests to **Google Places API** for star ratings and reviews.
-- `/api/stocking`: Parses the local `stocking_history.csv` to return ODNR fish stocking history.
+## Server routes and external contracts
 
-### 3. Config & State Management
-- `src/config/env.js`: Uses Zod to parse and validate environment variables (Firebase config, API keys) early to prevent runtime crashes.
-- `src/config/rivers.js`: A static configuration tree grouping river corridors dynamically under hierarchical state parameters.
+| Route | Source | Cache / timeout | Behavior |
+| --- | --- | --- | --- |
+| `/api/river?siteId=…` | USGS OGC `latest-continuous` | 5 minutes / 8 seconds | Numeric 8–15 digit IDs; latest flow and height selected separately by timestamp. Missing values, no-data markers and unsupported units remain unavailable. Returns both measurement times. |
+| `/api/weather?lat=…&lon=…` | Open-Meteo, then NWS points and hourly forecast | 15 minutes; NWS points 24 hours / 8 seconds per request | Bounded coordinates, imperial units, epoch timestamps, IANA timezone. Five-day outlook derived from available hourly data, plus a 3-hour series over 120 hours. Missing fields stay null; precipitation probability is distinct from amount. Both providers failing returns 503. |
+| `/api/reviews?riverId=…` | Google Places | 24 hours / 8 seconds | Only configured corridors may be searched. The Places key stays server-side. Missing configuration produces an explicit unavailable response with no fabricated reviews. |
+| `/api/stocking?riverId=…` | Local CSV | Bundled file | Returns recorded history, not a live stocking feed. Absence of a record implies nothing about wild populations. |
 
-## Architecture Decisions & Plans
+Flow older than one hour is labeled stale; a newer temperature or height reading cannot make it appear fresh. The UI displays each measurement time. Open-Meteo current conditions are model data; NWS fallback values are hourly forecasts. Pressure tendency is only computed when current and earlier pressure values exist. NWS gaps are not inferred from forecast descriptions. All forecast and sun times use the destination timezone, including daylight saving changes.
 
-Architectural decision records and proposed architectural changes are stored in the `/docs/` directory for full SDLC2 compliance:
+## Security and configuration
 
-### Architectural Decision Records (ADRs)
-- [ADR 0001: Next.js App Router Architecture](file:///Users/jonathonkline/Library/CloudStorage/OneDrive-Personal/KLINE/Jon/Fly%20Fishing%20Trip%20Planner/docs/ADR/0001-nextjs-app-router-architecture.md)
-- [ADR 0002: Firebase Authentication & Firestore Persistence](file:///Users/jonathonkline/Library/CloudStorage/OneDrive-Personal/KLINE/Jon/Fly%20Fishing%20Trip%20Planner/docs/ADR/0002-firebase-auth-and-firestore-integration.md)
-- [ADR 0003: External API Proxying & Caching](file:///Users/jonathonkline/Library/CloudStorage/OneDrive-Personal/KLINE/Jon/Fly%20Fishing%20Trip%20Planner/docs/ADR/0003-external-api-proxying-and-caching.md)
+- Without the Firebase API key, auth domain, project ID, and app ID, the site stays browseable and account operations are disabled. There is no local-password or demo-account fallback. Legacy mock-account storage is removed.
+- `onIdTokenChanged` supplies the trusted `admin: true` claim. Email addresses and client-written profile fields do not grant roles. The admin page is a client UI gate; any future privileged server operation must independently verify authorization.
+- `firestore.rules` restricts user-document reads to the owner and client writes to favorites. Rules must be emulator-tested and explicitly deployed to the intended project before production account use. A Next.js deployment does not deploy Firebase rules.
+- Map popups use text nodes. Messages validate origin, source window, type, coordinates, and corridor membership for navigation. The access iframe uses a readiness handshake. Map tiles and county boundaries are fetched directly by the browser, independently of the server API routes. County-boundary failure does not remove corridor paths.
+- State tiles use the [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/): attribution, ordinary browser caching, and no offline prefetching. Access maps use attributed Esri and USGS layers. Tile failures show a status message.
+- Environment values are documented in [README.md](README.md). `src/config/env.js` parses optional Firebase strings; `src/lib/firebase.js` checks required values before initializing the SDK. Firebase web configuration is public, while the Places key is server-only. Private operational notes and SSH material stay outside public commits.
 
-### Implementation Plans
-- [Weather API Redundancy Plan](file:///Users/jonathonkline/Library/CloudStorage/OneDrive-Personal/KLINE/Jon/Fly%20Fishing%20Trip%20Planner/docs/plans/weather_api_redundancy_plan.md)
-- [SDLC2 Audit & Remediation Plan](file:///Users/jonathonkline/.gemini/antigravity/brain/16cfac60-4b88-451f-9032-a1340f15f991/implementation_plan.md)
+## Delivery and verification
 
-### Code Cleanup Log
-- **Removed Legacy `Dashboard.js`**: Deleted 51 KB legacy monolithic dashboard component to eliminate architectural bloat after state-based App Router refactoring.
+Local Git branches are reviewed through pull requests. CI runs npm install from the lockfile, lint, Jest, and a production build without production credentials. Application deployment and Firebase rule deployment are separate steps; this change does not perform either.
 
+See [TESTING.md](TESTING.md), [ADR 0001](docs/ADR/0001-nextjs-app-router-architecture.md), [ADR 0002](docs/ADR/0002-firebase-auth-and-firestore-integration.md), and [ADR 0003](docs/ADR/0003-external-api-proxying-and-caching.md).

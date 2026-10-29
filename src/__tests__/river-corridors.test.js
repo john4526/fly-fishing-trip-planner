@@ -1,3 +1,4 @@
+import { classifyFlow } from "@/lib/river";
 import { STATES } from "@/config/rivers";
 
 describe("Vertical Slice: River Corridors & Flow Classification", () => {
@@ -27,16 +28,12 @@ describe("Vertical Slice: River Corridors & Flow Classification", () => {
 
     const { min, max } = madRiver.flowRange;
 
-    // Helper logic matching CorridorDetails evaluation
-    const evaluateFlow = (flow) => {
-      if (flow < min) return "Too Low";
-      if (flow > max) return "Too High / Unsafe";
-      return "Optimal Flow";
-    };
-
-    expect(evaluateFlow(25)).toBe("Too Low");
-    expect(evaluateFlow(100)).toBe("Optimal Flow");
-    expect(evaluateFlow(250)).toBe("Too High / Unsafe");
+    const evaluateFlow = flow => classifyFlow(flow, { min, max }).label;
+    expect(evaluateFlow(25)).toBe("Below reference range");
+    expect(evaluateFlow(min)).toBe("Within reference range");
+    expect(evaluateFlow(max)).toBe("Within reference range");
+    expect(evaluateFlow(250)).toBe("Above reference range");
+    expect(evaluateFlow(null)).toBe("Flow unavailable");
   });
 
   it("should ensure every corridor has valid coordinates and access points", () => {

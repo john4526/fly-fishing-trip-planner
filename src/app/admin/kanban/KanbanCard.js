@@ -46,7 +46,7 @@ export default function KanbanCard({ task, updateTaskStatus, toggleAcceptanceCri
         <div className={styles.checklist}>
           {task.acceptanceCriteria.map((ac) => (
             <label key={ac.id} className={styles.checklistItem}>
-              <button 
+              <button aria-label={ac.text} aria-pressed={ac.completed}
                 onClick={(e) => {
                   e.preventDefault();
                   toggleAcceptanceCriteria(task.id, ac.id);
@@ -63,7 +63,7 @@ export default function KanbanCard({ task, updateTaskStatus, toggleAcceptanceCri
       )}
 
       <div className={styles.cardFooter}>
-        <select 
+        <select aria-label={`Status: ${task.title}`}
           value={task.status === "Backlog" ? "To Do" : task.status}
           onChange={(e) => updateTaskStatus(task.id, e.target.value)}
           className={styles.statusSelect}

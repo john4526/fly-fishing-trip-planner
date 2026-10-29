@@ -929,3 +929,32 @@
     grid-template-columns: 1fr;
   }
 }
+
+.navLinks { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+.accountArea { max-width: 24rem; min-width: 0; }
+.weatherContent { display: flex; flex-direction: column; gap: 1.25rem; }
+.weatherTimestamp { font-size: .8rem; line-height: 1.5; color: var(--text-muted); }
+.weatherTimestamp a { text-decoration: underline; }
+.weatherDetailsGrid dt { font-size: .8rem; color: var(--text-muted); }
+.weatherDetailsGrid dd { margin: .3rem 0 0; font-size: .9rem; }
+.dailyForecast { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: .5rem; margin-top: .75rem; }
+.dashboardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card { min-width: 0; overflow-wrap: anywhere; }
+.forecastScroll { max-width: 100%; }
+.forecastScroll .forecastItem { min-width: 150px; }
+.topNav { flex-wrap: wrap; gap: 1rem; }
+.card select { max-width: 100%; }
+@media (max-width: 900px) {
+  .dashboardGrid { grid-template-columns: minmax(0, 1fr); }
+  .fullWidth { grid-column: auto; }
+}
+@media (max-width: 600px) {
+  .topNav { padding: 1rem; position: static; align-items: flex-start; }
+  .navLinks { width: 100%; }
+  .accountArea { width: 100%; max-width: none; }
+  .main { padding: 1rem; }
+  .card { padding: 1rem; }
+  .headerInfo h1 { font-size: 1.6rem; }
+  .weatherMain, .flowGageMeta { flex-wrap: wrap; gap: .75rem; }
+  .tabBtn { padding: .75rem .5rem; font-size: .8rem; }
+}
