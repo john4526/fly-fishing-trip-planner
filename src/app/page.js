@@ -19,6 +19,7 @@ export default function Home() {
         <p style={styles.heroSubtitle}>
           Select a state below to view real-time water levels, weather forecasts, access points, and stocking information.
         </p>
+        <Link href="/plan" style={{ color: '#14566a', textDecoration: 'underline', fontWeight: 600 }}>Plan two short Pennsylvania outings →</Link>
       </section>
 
       <div style={styles.grid}>

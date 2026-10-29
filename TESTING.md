@@ -100,7 +100,7 @@ Run `npm run test:rules` with Java 21. `scripts/check-firestore-rules.mjs` exerc
 - Unauthenticated clients and another account cannot read, create, update, or delete someone else's document.
 - Client writes cannot create or modify `admin` or `role` fields, including replacing a complete document. Server-managed fields remain intact during favorites updates.
 - Favorites must be a list; 100 entries are allowed, 101 entries, missing values, null, strings, and maps are denied.
-- Other collections and nested documents remain inaccessible, including to a client with an admin token.
+- Other collections and nested documents remain inaccessible, including to a client with an admin token, except the explicitly owner-scoped plan documented below.
 - The test entry point refuses to run without `127.0.0.1:8180`; the runner always selects `demo-fishing-planner`, never a live project.
 
 Release checks requiring the deployed environment:
@@ -110,3 +110,18 @@ Release checks requiring the deployed environment:
 - Test the exact Linux release on a separate loopback port with its build-time Firebase configuration. Verify landing, state, corridor, API validation, current conditions, maps, and account form availability.
 - Verify HTTPS using normal certificate validation from a tailnet client; confirm Serve has no Funnel exposure and Next.js listens only on loopback.
 - Verify only the fishing app changes during cutover, the previous release remains available, the final process is saved for reboot, and unrelated apps still respond. Record the release commit, smoke results, and rollback commands in private operations notes.
+
+## 15. Two-outing Pennsylvania planner
+
+- **Navigation and layout:** Home, Pennsylvania overview, and Pennsylvania corridors link to `/plan`. Verify two separately labeled outings at desktop and 390px widths, visible keyboard focus, readable source links, no horizontal clipping, and a working `/planning-sources` link.
+- **Dates:** Leave dates blank and save an unscheduled draft. Set a trip crossing a calendar year and choose two different dates within it. Reject duplicate dates, impossible dates, an outing outside the trip, a missing trip endpoint, reversed dates, and windows longer than 31 days. Personal travel dates must not be embedded in public source.
+- **Budget:** For 4, 5, and 6 hours, subtract twice the one-way drive and the total access buffer. Verify zero-minute overrides remain zero, blank overrides use the base estimate, and changing a base or stream clears its old override. Primary and backup must differ. A backup is calculated independently from the same base, not chained to the primary.
+- **Long drives:** Spring Creek from Lancaster leaves no fishing time in a six-hour window with the current 170-minute allowance and 30-minute access buffer. Hershey's 145-minute allowance leaves 40 minutes. Show no-time or short-outing warnings; never manufacture more fishing time to make the choice fit.
+- **Daylight:** Use actual SunCalc output for winter and both sides of the Eastern DST transition. Early starts cannot fish before sunrise; late starts stop 30 minutes before sunset. Time removed by daylight remains visible. An undated plan clearly lacks daylight limits. Forecast copy distinguishes past dates, the five-day window, and seasonal planning beyond it.
+- **Storage:** Save a guest plan, reload, and verify it restores. Invalid JSON/shapes and storage quota errors must show a recoverable error, preserve the saved copy, and never claim success. Starting a replacement guest draft requires an explicit action; only Save overwrites it.
+- **Accounts:** Sign-in selects only that account's plan, with no implicit guest import. A failed cloud read blocks editing and offers retry. Sign out or switch accounts during a pending read; late data must not appear in the new session. Save failures retain edits. Pending writes disable edits and duplicate saves. In a second signed-in browser, reload to observe a saved plan; concurrent writes use last-write-wins.
+- **Firestore rules:** Owners can create/read/replace/delete `users/{uid}/plans/outings`, including undated drafts. Unauthenticated users, other users, and other users with admin claims cannot read or mutate it. Unknown document IDs/fields, missing fields, wrong versions/types, extra outings, unsupported streams/bases, invalid numeric bounds, duplicate fishing dates, and dates outside the trip are denied. Existing favorites permissions still pass. Client calendar validation is stricter than the rules' date-shape checks.
+- **Source corrections:** Penns Creek uses USGS 01555000; Little Juniata uses 01558000. Corrected gauges have no inherited unverified flow ranges. Letort's historical station is labeled and never polled for live readings. Yellow Breeches no longer displays the superseded Section 03 designation. Notes make unknown parking capacities/walk times and reach boundaries explicit.
+- **Release prerequisite:** Deploy reviewed rules to the explicit Firebase project before shipping account plan saves. Application rollback does not remove saved plans. Verify a real signed-in save/load after deployment; emulator tests alone do not prove production rule activation.
+
+Automated coverage: `outing-plan.test.js`, `plan-storage.test.js`, `trip-planner.test.js`, and added plan cases in `scripts/check-firestore-rules.mjs`. Actual small-screen layout and live account synchronization require the manual checks above.

@@ -10,6 +10,45 @@ service cloud.firestore {
       allow create: if isOwner() && request.resource.data.keys().hasOnly(['favorites']) && validFavorites();
       allow update: if isOwner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favorites']) && validFavorites();
       allow delete: if isOwner();
+
+      // One bounded, private two-outing plan per account. Other subcollections stay denied.
+      match /plans/outings {
+        function dateShape(value) {
+          return value is string && (value == '' || value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'));
+        }
+        function drive(value) {
+          return value == null || (value is int && value >= 0 && value <= 240);
+        }
+        function stream(value) {
+          return value in ['yellow-breeches', 'letort-spring-run', 'spring-creek'];
+        }
+        function validOuting(day, start, end) {
+          return day is map && day.keys().hasOnly([
+            'date', 'baseId', 'hours', 'departureMinutes', 'primaryId', 'backupId',
+            'driveMinutes', 'backupDriveMinutes', 'accessMinutes'
+          ])
+          && dateShape(day.date)
+          && (day.date == '' || (start != '' && end != '' && day.date >= start && day.date <= end))
+          && day.baseId in ['hershey', 'lancaster']
+          && day.hours is int && day.hours >= 4 && day.hours <= 6
+          && day.departureMinutes is int && day.departureMinutes >= 300 && day.departureMinutes <= 900
+          && stream(day.primaryId) && stream(day.backupId) && day.primaryId != day.backupId
+          && drive(day.driveMinutes) && drive(day.backupDriveMinutes)
+          && day.accessMinutes is int && day.accessMinutes >= 0 && day.accessMinutes <= 120;
+        }
+        function validPlan() {
+          let plan = request.resource.data;
+          return plan.keys().hasOnly(['version', 'startDate', 'endDate', 'outings'])
+          && plan.version == 1 && dateShape(plan.startDate) && dateShape(plan.endDate)
+          && ((plan.startDate == '' && plan.endDate == '') || (plan.startDate != '' && plan.endDate > plan.startDate))
+          && plan.outings is list && plan.outings.size() == 2
+          && validOuting(plan.outings[0], plan.startDate, plan.endDate)
+          && validOuting(plan.outings[1], plan.startDate, plan.endDate)
+          && (plan.outings[0].date == '' || plan.outings[1].date == '' || plan.outings[0].date != plan.outings[1].date);
+        }
+        allow read, delete: if isOwner();
+        allow create, update: if isOwner() && validPlan();
+      }
     }
   }
 }
