@@ -19,6 +19,7 @@ Verified locally on 2026-10-29 against a production Next.js build. Screenshots u
 - Save, reload, and restore preserve both outing dates, the trip window, and starting base.
 - The sources page loads and fits the phone viewport. The planner produces no browser console errors in these checks.
 - Letort's corridor displays the discontinued-station note and makes no `/api/river` request. Its planner link resolves correctly.
+- Design-hook follow-up: removed the outing cards' thick top accent and the error notice's side stripe. Refreshed desktop/phone screenshots, checked the actual corrupt-draft recovery notice, and confirmed no overflow. The scoped design detector returned no findings; lint and production build pass. No suppressions were added.
 
 ## Screenshots
 

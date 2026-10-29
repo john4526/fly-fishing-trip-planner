@@ -18,7 +18,7 @@
 .page input::placeholder { color: #677c84; }
 .page small { font-size: 12px; font-weight: 400; color: #4b6068; line-height: 1.45; }
 .outings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
-.outing { background: #fafdff; border: 1px solid #b9c9ce; border-top: 3px solid #28605d; padding: 22px 24px 20px; border-radius: 5px; }
+.outing { background: #fafdff; border: 1px solid #b9c9ce; padding: 22px 24px 20px; border-radius: 5px; }
 .outing legend { font-size: 21px; letter-spacing: -.4px; }
 .inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; }
 .wide { margin: 20px 0; }
@@ -47,7 +47,7 @@
 .page .save { background: #205e55; color: white; border-color: #205e55; font-weight: 650; white-space: nowrap; }
 .page button:disabled { opacity: .55; cursor: default; }
 .errors { color: #9d2e20; margin: 16px 0; padding-left: 20px; }
-.notice { border-left: 3px solid #a76520; padding: 16px; background: #faf5eb; }
+.notice { padding: 16px; background: #faf5eb; }
 .notice button { margin: 12px 12px 0 0; }
 .shortlist { margin-top: 52px; }
 .sectionHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
