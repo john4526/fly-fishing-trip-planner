@@ -13,6 +13,15 @@ flowchart TD
     Config --> State[State overview]
     Config --> Corridor[Corridor dashboard]
     Landing --> State --> Corridor
+    Landing --> Planner[Two-outing planner /plan]
+    State --> Planner
+    Planner --> Budget[Travel and daylight calculation]
+    Planning[PA source notes and routing snapshot] --> Budget
+    SunCalc[Bundled SunCalc] --> Budget
+    Planner --> Auth
+    Planner <--> Device[Guest plan in localStorage]
+    Planner <--> Rules
+    Rules <--> Plans[users/uid/plans/outings]
     Corridor --> Resource[Abortable requests and timed refresh]
     Resource --> River[/api/river]
     Resource --> Weather[/api/weather]
@@ -45,6 +54,18 @@ flowchart TD
 - Admin Kanban changes task status and checklist completion in localStorage. It has no backend administrative API, task creation/deletion UI, or cross-device synchronization. Invalid saved data is reported without overwriting it on load.
 
 ## Server routes and external contracts
+
+### Two-outing planning
+
+`/plan` provides exactly two 4–6 hour outings from Hershey or Lancaster. `outing-plan.js` validates the versioned shape, trip window, distinct fishing dates, bounded allowances, and different primary/backup streams. Blank dates are valid drafts. Travel is counted twice; the access buffer is split equally around fishing. SunCalc computes daylight locally for the selected date and stream, formatted in America/New_York; fishing stops 30 minutes before sunset. No routing or daylight API is added.
+
+`pa-planning.js` owns the three-stream shortlist, dated source links, and editable drive estimates from a one-time OSRM/OpenStreetMap snapshot. `/planning-sources` explains the assumptions. The corridor configuration reuses selected access and rule notes, corrects Penns Creek/Little Juniata station IDs, removes unverified reference ranges for the reviewed gauges, and stops live polling of the discontinued Letort station. This is not a full audit of all corridor data; see [source review](docs/data/pennsylvania-planning.md).
+
+`plan-storage.js` explicitly saves guest drafts in `streamplanner:outings:v1:guest`, or a signed-in plan at `users/{uid}/plans/outings`. Account plans are authoritative and never implicitly import a guest draft. The editor remounts on identity changes and discards late loads. Read failures block cloud editing; corrupt device data requires an explicit new draft and is not overwritten until Save. Failed writes retain edits, and pending writes lock controls. Plans are private and are not an offline cloud-sync queue. Same-account concurrent saves use last-write-wins; one browser does not live-update another already-open editor.
+
+The fixed `plans/outings` rules permit owner CRUD with a bounded shape, exactly two outings, allowed bases/streams, numerical bounds, distinct dates, and date-window ordering. Rules enforce date syntax; real calendar dates and the 31-day maximum window are additionally validated by the client on load/save. Other nested paths remain denied. Deploy these rules separately before shipping account plan saves.
+
+### Existing conditions APIs
 
 | Route | Source | Cache / timeout | Behavior |
 | --- | --- | --- | --- |

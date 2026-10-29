@@ -1,3 +1,5 @@
+import { PLANNING_STREAMS } from './pa-planning';
+
 export const STATES = {
   ohio: {
     id: "ohio",
@@ -691,11 +693,13 @@ export const STATES = {
         name: "Spring Creek",
         location: "Bellefonte",
         gaugeId: "01546400",
+        gaugeName: "Spring Creek at Houserville",
+        gaugeNote: PLANNING_STREAMS['spring-creek'].gaugeNote,
         latitude: 40.9115,
         longitude: -77.7785,
-        flowRange: { min: 50, max: 150 },
+        flowRange: null,
         species: ["Wild Brown Trout"],
-        description: "One of Pennsylvania's most famous limestone streams. Spring Creek holds a massive population of wild brown trout and remains fishable year-round due to stable spring temperatures. Wading is generally easy.",
+        description: "A limestone stream with wild brown trout. Regulations and wading restrictions vary by reach; Fisherman's Paradise has a separate fly-fishing-only section.",
         googlePlaceQuery: "Spring Creek Bellefonte PA fly fishing access",
         accessPoints: [
           {
@@ -704,9 +708,9 @@ export const STATES = {
             latitude: 40.8712,
             longitude: -77.7785,
             type: "access",
-            parkingCapacity: "30 cars (Gravel)",
-            regulations: "Catch & Release only. Artificial lures/flies only. Wading not permitted.",
-            notes: "The birthplace of modern trout stream management in PA. Huge wild brown trout, very educated."
+            parkingCapacity: "Capacity not verified",
+            regulations: PLANNING_STREAMS['spring-creek'].regulations,
+            notes: PLANNING_STREAMS['spring-creek'].access
           },
           {
             id: "milesburg-gap",
@@ -734,10 +738,12 @@ export const STATES = {
         id: "penns-creek",
         name: "Penns Creek",
         location: "Coburn",
-        gaugeId: "01548500",
+        gaugeId: "01555000",
+        gaugeName: "Penns Creek at Penns Creek",
+        gaugeNote: "Downstream regional context for Coburn, not a measurement at the access point. Reference range not verified for this station.",
         latitude: 40.8678,
         longitude: -77.4589,
-        flowRange: { min: 150, max: 500 },
+        flowRange: null,
         species: ["Wild Brown Trout", "Rainbow Trout"],
         description: "A large, challenging limestone stream famous for its legendary Green Drake hatch in late May. Wading can be difficult due to slick, bowling-ball-sized rocks. High flow rates can make it dangerous.",
         googlePlaceQuery: "Penns Creek Coburn PA fly fishing access",
@@ -768,10 +774,12 @@ export const STATES = {
         id: "little-juniata",
         name: "Little Juniata River",
         location: "Spruce Creek",
-        gaugeId: "01556000",
+        gaugeId: "01558000",
+        gaugeName: "Little Juniata River at Spruce Creek",
+        gaugeNote: "Spruce Creek station. Reference range not verified for this station; a reading does not establish safe wading.",
         latitude: 40.6000,
         longitude: -78.1333,
-        flowRange: { min: 100, max: 400 },
+        flowRange: null,
         species: ["Brown Trout"],
         description: "A premier limestone-influenced freestone river, recovering remarkably from past pollution to become a top brown trout fishery.",
         googlePlaceQuery: "Little Juniata River Spruce Creek fly fishing",
@@ -793,11 +801,13 @@ export const STATES = {
         name: "Yellow Breeches Creek",
         location: "Boiling Springs",
         gaugeId: "01571500",
+        gaugeName: "Yellow Breeches Creek near Camp Hill",
+        gaugeNote: PLANNING_STREAMS['yellow-breeches'].gaugeNote,
         latitude: 40.1500,
         longitude: -77.1333,
-        flowRange: { min: 100, max: 250 },
+        flowRange: null,
         species: ["Brown Trout", "Rainbow Trout"],
-        description: "A famous Pennsylvania limestone stream with a popular Catch and Release section near Allenberry Resort.",
+        description: "Limestone-influenced water near Boiling Springs. Section 03 regulations changed in August 2026; review current rules and marked boundaries before fishing.",
         googlePlaceQuery: "Yellow Breeches Boiling Springs fly fishing",
         accessPoints: [
           {
@@ -806,9 +816,9 @@ export const STATES = {
             latitude: 40.1480,
             longitude: -77.1250,
             type: "access",
-            parkingCapacity: "15 cars (Paved)",
-            regulations: "Catch & Release Artificial Lures Only.",
-            notes: "Highly pressured but heavily stocked and holds holdover fish. Beautiful setting."
+            parkingCapacity: "Capacity not verified",
+            regulations: PLANNING_STREAMS['yellow-breeches'].regulations,
+            notes: PLANNING_STREAMS['yellow-breeches'].access
           }
         ]
       },
@@ -841,9 +851,12 @@ export const STATES = {
         name: "Letort Spring Run",
         location: "Carlisle",
         gaugeId: "01569800",
+        gaugeName: "Letort Spring Run near Carlisle (historical)",
+        gaugeHistorical: true,
+        gaugeNote: PLANNING_STREAMS['letort-spring-run'].gaugeNote,
         latitude: 40.2000,
         longitude: -77.1800,
-        flowRange: { min: 20, max: 60 },
+        flowRange: null,
         species: ["Brown Trout"],
         description: "One of the most famous limestone spring creeks in the world. Extremely technical fishing for wild browns.",
         googlePlaceQuery: "Letort Spring Run fly fishing",
@@ -854,9 +867,9 @@ export const STATES = {
             latitude: 40.2050,
             longitude: -77.1850,
             type: "access",
-            parkingCapacity: "20 cars",
-            regulations: "Catch and Release Fly Fishing Only.",
-            notes: "Stealth and long leaders are absolutely required."
+            parkingCapacity: "Capacity not verified",
+            regulations: PLANNING_STREAMS['letort-spring-run'].regulations,
+            notes: PLANNING_STREAMS['letort-spring-run'].access
           }
         ]
       },

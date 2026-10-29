@@ -19,7 +19,7 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
   const [activeGaugeId, setActiveGaugeId] = useState(corridor.gaugeId);
   const [mapMode, setMapMode] = useState("satellite"); // 'satellite' or 'terrain'
   const [showStocking, setShowStocking] = useState(false);
-  const river = useResource(`/api/river?siteId=${corridor.gaugeId}`, 300000);
+  const river = useResource(corridor.gaugeHistorical ? null : `/api/river?siteId=${corridor.gaugeId}`, 300000);
   const extra = useResource((corridor.additionalGauges || []).map(g => `/api/river?siteId=${g.id}`), 300000);
   const weather = useResource(`/api/weather?lat=${corridor.latitude}&lon=${corridor.longitude}`, 900000);
   const reviews = useResource(`/api/reviews?riverId=${corridor.id}`);
@@ -34,7 +34,7 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
   const [showAuthWarning, setShowAuthWarning] = useState(false);
   const [favoriteError, setFavoriteError] = useState('');
   const allGauges = useMemo(() => [
-    ...(riverData ? [{ ...riverData, name: `${corridor.name} (Primary)`, isPrimary: true, flowRange: corridor.flowRange }] : []),
+    ...(riverData ? [{ ...riverData, name: corridor.gaugeName || `${corridor.name} (Primary)`, isPrimary: true, flowRange: corridor.flowRange }] : []),
     ...(extra.data || []).filter(Boolean).map(g => {
       const config = corridor.additionalGauges.find(item => item.id === g.siteId);
       return { ...g, name: config.name, flowRange: config.flowRange };
@@ -89,6 +89,7 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
             <ChevronLeft size={14} />
             Back to {stateName} Map
           </Link>
+          {stateId === 'pennsylvania' && <Link href="/plan" style={{ color: '#14566a', textDecoration: 'underline' }}>Two-outing planner</Link>}
         </div>
 
         {/* User Account Section */}
@@ -184,6 +185,7 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
                 )}
               </div>
               
+              {corridor.gaugeNote && <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>{corridor.gaugeNote} <a href={`https://waterdata.usgs.gov/monitoring-location/USGS-${corridor.gaugeId}`} target="_blank" rel="noopener noreferrer" style={{ color: '#14566a', textDecoration: 'underline' }}>USGS {corridor.gaugeId}</a> · Checked 2026-10-29</p>}
               {riverLoading ? (
                 <div className={styles.loadingContainer}>
                   <div className={styles.spinner}></div>

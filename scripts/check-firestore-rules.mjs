@@ -85,4 +85,49 @@ describe('Firestore favorites permissions', () => {
       await assertFails(setDoc(doc(db, path), { favorites: [] }));
     }
   });
+
+  const plan = () => ({ version: 1, startDate: '2030-12-28', endDate: '2031-01-03', outings: [
+    { date: '2030-12-29', baseId: 'hershey', hours: 4, departureMinutes: 600, primaryId: 'yellow-breeches', backupId: 'letort-spring-run', driveMinutes: null, backupDriveMinutes: null, accessMinutes: 30 },
+    { date: '2031-01-02', baseId: 'lancaster', hours: 6, departureMinutes: 540, primaryId: 'letort-spring-run', backupId: 'yellow-breeches', driveMinutes: 80, backupDriveMinutes: 80, accessMinutes: 30 },
+  ] });
+  const planDoc = db => doc(db, 'users', 'alice', 'plans', 'outings');
+
+  it('lets the owner create, read, replace, and delete their two-outing plan', async () => {
+    const ref = planDoc(client());
+    await assertSucceeds(setDoc(ref, plan()));
+    await assertSucceeds(getDoc(ref));
+    const draft = plan(); draft.startDate = ''; draft.endDate = ''; draft.outings.forEach(day => { day.date = ''; });
+    await assertSucceeds(setDoc(ref, draft));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it('denies every plan operation to unauthenticated and other users, including admin clients', async () => {
+    await assertSucceeds(setDoc(planDoc(client()), plan()));
+    for (const db of [environment.unauthenticatedContext().firestore(), client('bob'), environment.authenticatedContext('bob', { admin: true }).firestore()]) {
+      const ref = planDoc(db);
+      await assertFails(getDoc(ref));
+      await assertFails(setDoc(ref, plan()));
+      await assertFails(updateDoc(ref, { startDate: '' }));
+      await assertFails(deleteDoc(ref));
+    }
+    await assertFails(setDoc(doc(client(), 'users/alice/plans/other'), plan()));
+  });
+
+  it('rejects oversized, incomplete, privileged, and invalid outing payloads', async () => {
+    const ref = planDoc(client());
+    for (const patch of [{ admin: true }, { version: 2 }, { outings: [] }, { outings: Array(3).fill(plan().outings[0]) }, { endDate: '' }, { startDate: 'invalid' }]) {
+      await assertFails(setDoc(ref, { ...plan(), ...patch }));
+    }
+    for (const patch of [
+      { hours: 3 }, { hours: 7 }, { hours: '4' }, { departureMinutes: 299 }, { departureMinutes: 901 },
+      { driveMinutes: -1 }, { driveMinutes: 241 }, { driveMinutes: 1.5 }, { backupDriveMinutes: '80' },
+      { accessMinutes: 121 }, { baseId: 'unknown' }, { primaryId: 'unknown' }, { backupId: 'yellow-breeches' },
+      { date: '2031-01-04' }, { date: '2031-01-02' }, { role: 'admin' },
+    ]) {
+      const invalid = plan(); Object.assign(invalid.outings[0], patch);
+      await assertFails(setDoc(ref, invalid));
+    }
+    const missing = plan(); delete missing.outings[0].driveMinutes;
+    await assertFails(setDoc(ref, missing));
+  });
 });

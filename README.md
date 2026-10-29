@@ -2,6 +2,8 @@
 
 A Next.js 16 / React 19 application for browsing fishing corridors, USGS gauge readings, forecasts, access maps, and saved favorites. Seven states and 41 corridors are configured in `src/config/rivers.js`. Access descriptions, regulations, stocking records, and flow reference ranges are curated data, not live verification of access rights or safe conditions.
 
+The `/plan` page plans two 4–6 hour Pennsylvania outings from Hershey or Lancaster, including round-trip driving, access time, daylight, and a backup stream. Dates are user-entered. Guest plans save on the device; signed-in plans save privately to Firestore and restore after reload on another device. `/planning-sources` explains estimates and limitations. See [the data review](docs/data/pennsylvania-planning.md). Deploy the updated `firestore.rules` before releasing account plan saves; application deployment alone does not activate them.
+
 ## Run locally
 
 Use Node.js 24 LTS and npm with the committed lockfile:

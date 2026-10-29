@@ -26,6 +26,7 @@ export default async function StatePage({ params }) {
         <div style={styles.badge}>State Overview</div>
         <h1 style={styles.heroTitle}>{state.name} Fly Fishing</h1>
         <p style={styles.heroSubtitle}>{state.description}</p>
+        {stateId === 'pennsylvania' && <Link href="/plan" style={{ color: '#14566a', textDecoration: 'underline', fontWeight: 600 }}>Plan two 4–6 hour outings from Hershey or Lancaster →</Link>}
       </section>
 
       <div className={layout.columns}>
