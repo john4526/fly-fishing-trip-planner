@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { RIVERS } from "@/config/rivers";
 import styles from "./Dashboard.module.css";
 import { 
   Waves, 
@@ -12,65 +11,41 @@ import {
   MapPin, 
   Wind, 
   Droplets, 
-  Thermometer, 
   LogOut, 
   User, 
   Lock, 
   Mail, 
   Compass, 
   RefreshCw, 
-  CalendarDays,
   Info,
-  LayoutDashboard
+  ChevronLeft,
+  Fish,
+  Gauge,
+  Cloud,
+  CloudRain
 } from "lucide-react";
 
-export default function Dashboard() {
+export default function CorridorDetails({ corridor, stateId, stateName }) {
   const { user, signup, login, logout, favorites, toggleFavorite } = useAuth();
   
-  // Active River State
-  const [activeRiver, setActiveRiver] = useState(RIVERS[0]);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [activeAccessPoint, setActiveAccessPoint] = useState(RIVERS[0].accessPoints[0]);
+  const [activeAccessPoint, setActiveAccessPoint] = useState(corridor.accessPoints[0]);
+  const [activeGaugeId, setActiveGaugeId] = useState(corridor.gaugeId);
   const [mapMode, setMapMode] = useState("satellite"); // 'satellite' or 'terrain'
   const [showStocking, setShowStocking] = useState(false);
   const [stockingRecords, setStockingRecords] = useState([]);
 
   const mapIframeRef = useRef(null);
 
-  // Send update message to Leaflet iframe when active spot or map mode changes
-  useEffect(() => {
-    if (mapIframeRef.current && activeAccessPoint) {
-      const timer = setTimeout(() => {
-        mapIframeRef.current?.contentWindow?.postMessage({
-          type: "update_map",
-          lat: activeAccessPoint.latitude,
-          lon: activeAccessPoint.longitude,
-          mode: mapMode,
-          name: activeAccessPoint.name
-        }, "*");
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [activeAccessPoint, mapMode, activeTab]);
 
-  // Sync fish stocking layer with map iframe
-  useEffect(() => {
-    if (mapIframeRef.current) {
-      const timer = setTimeout(() => {
-        mapIframeRef.current?.contentWindow?.postMessage({
-          type: "update_stocking",
-          records: stockingRecords,
-          visible: showStocking
-        }, "*");
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [stockingRecords, showStocking, activeTab]);
   
   // API States
   const [riverData, setRiverData] = useState(null);
   const [riverLoading, setRiverLoading] = useState(true);
   const [riverError, setRiverError] = useState(null);
+
+  const [additionalRiverData, setAdditionalRiverData] = useState([]);
+  const [additionalRiverLoading, setAdditionalRiverLoading] = useState(false);
 
   const [weatherData, setWeatherData] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
@@ -87,8 +62,54 @@ export default function Dashboard() {
   const [authError, setAuthError] = useState("");
   const [showAuthWarning, setShowAuthWarning] = useState(false);
 
-  // Cache object for river flow values to show on the sidebar
-  const [sidebarFlows, setSidebarFlows] = useState({});
+  // Compute all available gauges
+  const allGauges = [];
+  if (riverData) {
+    allGauges.push({ ...riverData, name: `${corridor.name} (Primary)`, isPrimary: true });
+  }
+  if (additionalRiverData.length > 0) {
+    allGauges.push(...additionalRiverData);
+  }
+
+  // Current active gauge data
+  const activeGaugeData = allGauges.find(g => g.siteId === activeGaugeId) || riverData;
+
+  // Send update message to Leaflet iframe when active spot or map mode changes
+  useEffect(() => {
+    if (mapIframeRef.current && activeAccessPoint) {
+      const timer = setTimeout(() => {
+        mapIframeRef.current?.contentWindow?.postMessage({
+          type: "update_map",
+          lat: activeAccessPoint.latitude,
+          lon: activeAccessPoint.longitude,
+          mode: mapMode,
+          name: activeAccessPoint.name,
+          gauges: allGauges.filter(g => g.latitude && g.longitude).map(g => ({
+            id: g.siteId,
+            name: g.name,
+            lat: g.latitude,
+            lon: g.longitude,
+            isActive: g.siteId === activeGaugeId
+          }))
+        }, "*");
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activeAccessPoint, mapMode, activeTab, activeGaugeId, allGauges.length]);
+
+  // Sync fish stocking layer with map iframe
+  useEffect(() => {
+    if (mapIframeRef.current) {
+      const timer = setTimeout(() => {
+        mapIframeRef.current?.contentWindow?.postMessage({
+          type: "update_stocking",
+          records: stockingRecords,
+          visible: showStocking
+        }, "*");
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [stockingRecords, showStocking, activeTab]);
 
   // Helper: Wind degree to direction
   const getWindDirection = (deg) => {
@@ -98,30 +119,12 @@ export default function Dashboard() {
     return directions[index];
   };
 
-  // Fetch Sidebar flows (minimal fetch)
-  useEffect(() => {
-    RIVERS.forEach(async (river) => {
-      try {
-        const res = await fetch(`/api/river?siteId=${river.gaugeId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setSidebarFlows(prev => ({
-            ...prev,
-            [river.id]: data.flow !== null ? `${data.flow} cfs` : "N/A"
-          }));
-        }
-      } catch (e) {
-        console.error("Error loading sidebar flow for " + river.name, e);
-      }
-    });
-  }, []);
-
-  // Fetch details for active river
-  const fetchActiveRiverData = useCallback(async () => {
+  // Fetch details for active corridor
+  const fetchRiverData = useCallback(async () => {
     setRiverLoading(true);
     setRiverError(null);
     try {
-      const res = await fetch(`/api/river?siteId=${activeRiver.gaugeId}`);
+      const res = await fetch(`/api/river?siteId=${corridor.gaugeId}`);
       if (!res.ok) throw new Error("Failed to fetch streamflow data");
       const data = await res.json();
       setRiverData(data);
@@ -130,13 +133,35 @@ export default function Dashboard() {
     } finally {
       setRiverLoading(false);
     }
-  }, [activeRiver.gaugeId]);
+  }, [corridor.gaugeId]);
 
-  const fetchActiveWeatherData = useCallback(async () => {
+  const fetchAdditionalRiverData = useCallback(async () => {
+    if (!corridor.additionalGauges || corridor.additionalGauges.length === 0) {
+      setAdditionalRiverData([]);
+      return;
+    }
+    setAdditionalRiverLoading(true);
+    try {
+      const promises = corridor.additionalGauges.map(gauge => 
+        fetch(`/api/river?siteId=${gauge.id}`).then(res => {
+          if (!res.ok) throw new Error("Failed");
+          return res.json().then(data => ({ ...data, name: gauge.name }));
+        }).catch(err => null)
+      );
+      const results = await Promise.all(promises);
+      setAdditionalRiverData(results.filter(r => r !== null));
+    } catch (err) {
+      console.error("Error fetching additional gauges:", err);
+    } finally {
+      setAdditionalRiverLoading(false);
+    }
+  }, [corridor.additionalGauges]);
+
+  const fetchWeatherData = useCallback(async () => {
     setWeatherLoading(true);
     setWeatherError(null);
     try {
-      const res = await fetch(`/api/weather?lat=${activeRiver.latitude}&lon=${activeRiver.longitude}`);
+      const res = await fetch(`/api/weather?lat=${corridor.latitude}&lon=${corridor.longitude}`);
       if (!res.ok) throw new Error("Failed to fetch weather conditions");
       const data = await res.json();
       setWeatherData(data);
@@ -145,13 +170,13 @@ export default function Dashboard() {
     } finally {
       setWeatherLoading(false);
     }
-  }, [activeRiver.latitude, activeRiver.longitude]);
+  }, [corridor.latitude, corridor.longitude]);
 
-  const fetchActiveReviewsData = useCallback(async () => {
+  const fetchReviewsData = useCallback(async () => {
     setReviewsLoading(true);
     setReviewsError(null);
     try {
-      const res = await fetch(`/api/reviews?query=${encodeURIComponent(activeRiver.googlePlaceQuery)}&riverId=${activeRiver.id}`);
+      const res = await fetch(`/api/reviews?query=${encodeURIComponent(corridor.googlePlaceQuery)}&riverId=${corridor.id}`);
       if (!res.ok) throw new Error("Failed to fetch reviews");
       const data = await res.json();
       setReviewsData(data);
@@ -160,11 +185,11 @@ export default function Dashboard() {
     } finally {
       setReviewsLoading(false);
     }
-  }, [activeRiver.googlePlaceQuery, activeRiver.id]);
+  }, [corridor.googlePlaceQuery, corridor.id]);
 
   const fetchStockingData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/stocking?riverId=${activeRiver.id}`);
+      const res = await fetch(`/api/stocking?riverId=${corridor.id}`);
       if (res.ok) {
         const data = await res.json();
         setStockingRecords(data);
@@ -172,18 +197,19 @@ export default function Dashboard() {
     } catch (e) {
       console.error("Error fetching stocking data:", e);
     }
-  }, [activeRiver.id]);
+  }, [corridor.id]);
 
   useEffect(() => {
-    fetchActiveRiverData();
-    fetchActiveWeatherData();
-    fetchActiveReviewsData();
+    fetchRiverData();
+    fetchAdditionalRiverData();
+    fetchWeatherData();
+    fetchReviewsData();
     fetchStockingData();
     setShowAuthWarning(false);
-    if (activeRiver.accessPoints && activeRiver.accessPoints.length > 0) {
-      setActiveAccessPoint(activeRiver.accessPoints[0]);
+    if (corridor.accessPoints && corridor.accessPoints.length > 0) {
+      setActiveAccessPoint(corridor.accessPoints[0]);
     }
-  }, [activeRiver, fetchActiveRiverData, fetchActiveWeatherData, fetchActiveReviewsData, fetchStockingData]);
+  }, [corridor, fetchRiverData, fetchWeatherData, fetchReviewsData, fetchStockingData]);
 
   // Auth handlers
   const handleAuthSubmit = async (e) => {
@@ -220,7 +246,6 @@ export default function Dashboard() {
     const minLimit = Math.max(0, min - padding);
     const maxLimit = max + padding;
     
-    // Calculate percentage width for visual progress indicator
     let percent = ((flow - minLimit) / (maxLimit - minLimit)) * 100;
     percent = Math.max(0, Math.min(100, percent));
 
@@ -237,32 +262,56 @@ export default function Dashboard() {
     }
   };
 
-  const flowStatus = riverData ? getFlowStatus(riverData.flow, activeRiver.flowRange) : null;
-  const isFavorite = favorites.includes(activeRiver.id);
+  const flowStatus = activeGaugeData ? getFlowStatus(activeGaugeData.flow, corridor.flowRange) : null;
+  const isFavorite = favorites.includes(corridor.id);
 
   const handleFavoriteClick = () => {
     if (!user) {
       setShowAuthWarning(true);
       return;
     }
-    toggleFavorite(activeRiver.id);
+    toggleFavorite(corridor.id);
   };
 
   return (
-    <div className={styles.container}>
-      {/* Sidebar Navigation */}
-      <aside className={styles.sidebar}>
-        <div className={styles.brand}>
-          <Waves size={28} />
-          <span>StreamPlanner</span>
+    <div className={styles.detailContainer}>
+      {/* Top Navigation */}
+      <nav className={styles.topNav}>
+        <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
+          <div className={styles.brand}>
+            <Compass size={28} />
+            <span>StreamPlanner</span>
+          </div>
+
+          <Link
+            href={`/states/${stateId}`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid var(--border-card)",
+              borderRadius: "8px",
+              padding: "0.5rem 1rem",
+              fontSize: "0.85rem",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              fontWeight: "600",
+              transition: "all 0.2s",
+              textDecoration: "none"
+            }}
+          >
+            <ChevronLeft size={14} />
+            Back to {stateName} Map
+          </Link>
         </div>
 
         {/* User Account Section */}
-        <div className={styles.authSection}>
+        <div className={styles.authSection} style={{ border: "none", padding: 0, minWidth: "220px" }}>
           {user ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               <div className={styles.userInfo}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", maxWidth: "65%" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", maxWidth: "150px" }}>
                   <span className={styles.userEmail} title={user.email}>{user.email}</span>
                   <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "500" }}>Logged In</span>
                 </div>
@@ -271,40 +320,15 @@ export default function Dashboard() {
                   Sign Out
                 </button>
               </div>
-              {user.isAdmin && (
-                <Link 
-                  href="/admin/kanban" 
-                  style={{ 
-                    display: "flex", 
-                    alignItems: "center", 
-                    justifyContent: "center", 
-                    gap: "0.5rem", 
-                    background: "rgba(59, 130, 246, 0.1)", 
-                    border: "1px solid rgba(59, 130, 246, 0.3)", 
-                    borderRadius: "8px", 
-                    padding: "0.6rem", 
-                    color: "#60a5fa", 
-                    fontSize: "0.85rem", 
-                    fontWeight: "600", 
-                    transition: "all 0.2s", 
-                    textDecoration: "none" 
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(59, 130, 246, 0.2)"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(59, 130, 246, 0.1)"}
-                >
-                  <LayoutDashboard size={16} />
-                  Admin Dashboard
-                </Link>
-              )}
             </div>
           ) : (
             <div className={styles.authContainer}>
-              <h3 style={{ fontSize: "0.85rem", fontWeight: "700", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <h3 style={{ fontSize: "0.85rem", fontWeight: "700", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--text-main)" }}>
                 <User size={14} />
                 {isSignUp ? "Create Account" : "Sign In to Save Spots"}
               </h3>
-              <form onSubmit={handleAuthSubmit} className={styles.authForm}>
-                <div style={{ position: "relative" }}>
+              <form onSubmit={handleAuthSubmit} className={styles.authForm} style={{ flexDirection: "row", flexWrap: "wrap", width: "300px" }}>
+                <div style={{ position: "relative", flex: "1", minWidth: "140px" }}>
                   <input 
                     type="email" 
                     placeholder="Email" 
@@ -315,7 +339,7 @@ export default function Dashboard() {
                   />
                   <Mail size={12} style={{ position: "absolute", left: "0.5rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
                 </div>
-                <div style={{ position: "relative" }}>
+                <div style={{ position: "relative", flex: "1", minWidth: "140px" }}>
                   <input 
                     type="password" 
                     placeholder="Password" 
@@ -326,63 +350,40 @@ export default function Dashboard() {
                   />
                   <Lock size={12} style={{ position: "absolute", left: "0.5rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
                 </div>
-                {authError && <span className={styles.authError}>{authError}</span>}
-                <button type="submit" className={styles.authSubmitBtn}>
-                  {isSignUp ? "Sign Up" : "Log In"}
-                </button>
+                <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.25rem" }}>
+                  <div className={styles.authToggleText}>
+                    {isSignUp ? (
+                      <span>Have an account? <span onClick={() => { setIsSignUp(false); setAuthError(""); }}>Log In</span></span>
+                    ) : (
+                      <span>New? <span onClick={() => { setIsSignUp(true); setAuthError(""); }}>Sign Up</span></span>
+                    )}
+                  </div>
+                  <button type="submit" className={styles.authSubmitBtn} style={{ padding: "0.35rem 1rem" }}>
+                    {isSignUp ? "Sign Up" : "Log In"}
+                  </button>
+                </div>
+                {authError && <span className={styles.authError} style={{ width: "100%", marginTop: "0.25rem" }}>{authError}</span>}
               </form>
-              <div className={styles.authToggleText} style={{ marginTop: "0.5rem" }}>
-                {isSignUp ? (
-                  <span>Already have an account? <span onClick={() => { setIsSignUp(false); setAuthError(""); }}>Log In</span></span>
-                ) : (
-                  <span>Don't have an account? <span onClick={() => { setIsSignUp(true); setAuthError(""); }}>Sign Up</span></span>
-                )}
-              </div>
             </div>
           )}
         </div>
-
-        {/* River Selector */}
-        <div className={styles.navSection}>
-          <span className={styles.navTitle}>Destinations</span>
-          <div className={styles.riverList}>
-            {RIVERS.map((river) => {
-              const isActive = river.id === activeRiver.id;
-              const hasFav = favorites.includes(river.id);
-              return (
-                <div 
-                  key={river.id} 
-                  onClick={() => setActiveRiver(river)}
-                  className={`${styles.riverItem} ${isActive ? styles.riverItemActive : ""}`}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                    <span className={styles.riverName}>{river.name}</span>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                      {sidebarFlows[river.id] || "Loading..."}
-                    </span>
-                  </div>
-                  <div className={styles.riverMeta}>
-                    {hasFav && <Star size={14} fill="#fbbf24" stroke="#fbbf24" />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </aside>
+      </nav>
 
       {/* Main Dashboard Panel */}
       <main className={styles.main}>
         {/* Header Block */}
         <section className={styles.header}>
           <div className={styles.headerInfo}>
-            <h1>{activeRiver.name}</h1>
+            <h1>{corridor.name}</h1>
             <div className={styles.speciesContainer}>
               <span style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--text-muted)", fontSize: "0.85rem", marginRight: "0.5rem" }}>
-                <MapPin size={14} /> Ohio, USA
+                <MapPin size={14} /> {corridor.location}, {stateName}
               </span>
-              {activeRiver.species.map((s, idx) => (
-                <span key={idx} className={styles.speciesBadge}>{s}</span>
+              {corridor.species.map((s, idx) => (
+                <span key={idx} className={styles.speciesBadge}>
+                  <Fish size={12} style={{ marginRight: "0.25rem", display: "inline" }} />
+                  {s}
+                </span>
               ))}
             </div>
           </div>
@@ -423,10 +424,34 @@ export default function Dashboard() {
             
             {/* USGS River Flow Card */}
             <div className={`${styles.card} glass`}>
-              <h2 className={styles.cardTitle}>
-                <Waves size={18} style={{ color: "var(--color-primary)" }} />
-                Live USGS River Gage
-              </h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+                <h2 className={styles.cardTitle} style={{ marginBottom: 0 }}>
+                  <Waves size={18} style={{ color: "var(--color-primary)" }} />
+                  Live USGS River Gage
+                </h2>
+                {allGauges.length > 1 && (
+                  <select 
+                    value={activeGaugeId} 
+                    onChange={(e) => setActiveGaugeId(e.target.value)}
+                    style={{
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border-color)",
+                      color: "var(--text-primary)",
+                      padding: "0.4rem 0.8rem",
+                      borderRadius: "6px",
+                      fontSize: "0.85rem",
+                      outline: "none",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {allGauges.map(g => (
+                      <option key={g.siteId} value={g.siteId} style={{ color: "#000" }}>
+                        {g.name} ({g.siteId})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
               
               {riverLoading ? (
                 <div className={styles.loadingContainer}>
@@ -436,18 +461,18 @@ export default function Dashboard() {
                 <div className={styles.loadingContainer} style={{ flexDirection: "column", gap: "0.5rem" }}>
                   <Info size={24} style={{ color: "var(--color-unsafe)" }} />
                   <span style={{ fontSize: "0.9rem" }}>Error loading gage: {riverError}</span>
-                  <button onClick={fetchActiveRiverData} className={styles.btnText} style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.5rem" }}>
+                  <button onClick={() => { fetchRiverData(); fetchAdditionalRiverData(); }} className={styles.btnText} style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.5rem" }}>
                     <RefreshCw size={12} /> Retry
                   </button>
                 </div>
-              ) : (
+              ) : activeGaugeData ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                   <div className={styles.flowStats}>
                     <span className={styles.flowValue}>
-                      {riverData.flow !== null ? riverData.flow : "N/A"}
+                      {activeGaugeData.flow !== null ? activeGaugeData.flow : "N/A"}
                     </span>
                     <span className={styles.flowLabel}>
-                      Streamflow ({riverData.flowUnit})
+                      Streamflow ({activeGaugeData.flowUnit})
                     </span>
                     {flowStatus && (
                       <span className={`${styles.flowBadge} ${flowStatus.class}`}>
@@ -457,10 +482,9 @@ export default function Dashboard() {
                   </div>
 
                   {/* Progress bar visual range indicator */}
-                  {flowStatus && riverData.flow !== null && (
+                  {flowStatus && activeGaugeData.flow !== null && (
                     <div className={styles.progressBarContainer}>
                       <div className={styles.progressBarTrack}>
-                        {/* Highlight optimal zone */}
                         <div 
                           className={styles.optimalZoneIndicator}
                           style={{
@@ -468,7 +492,6 @@ export default function Dashboard() {
                             right: "25%"
                           }}
                         ></div>
-                        {/* Current marker fill */}
                         <div 
                           className={styles.progressBarFill}
                           style={{
@@ -478,11 +501,11 @@ export default function Dashboard() {
                         ></div>
                       </div>
                       <div className={styles.progressLabelContainer}>
-                        <span>Low Flow Limit</span>
+                        <span>Low Flow</span>
                         <span style={{ fontWeight: "700", color: "var(--color-optimal)" }}>
-                          Optimal ({activeRiver.flowRange.min} - {activeRiver.flowRange.max} cfs)
+                          Optimal ({corridor.flowRange.min} - {corridor.flowRange.max} cfs)
                         </span>
-                        <span>High Flow Limit</span>
+                        <span>High Flow</span>
                       </div>
                     </div>
                   )}
@@ -490,19 +513,19 @@ export default function Dashboard() {
                   <div className={styles.flowGageMeta}>
                     <div className={styles.metaItem}>
                       <span className={styles.metaVal}>
-                        {riverData.height !== null ? `${riverData.height} ${riverData.heightUnit}` : "N/A"}
+                        {activeGaugeData.height !== null ? `${activeGaugeData.height} ${activeGaugeData.heightUnit}` : "N/A"}
                       </span>
                       <span className={styles.metaLabel}>Gage Height</span>
                     </div>
                     <div className={styles.metaItem}>
                       <span className={styles.metaVal}>
-                        {riverData.timestamp ? new Date(riverData.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
+                        {activeGaugeData.timestamp ? new Date(activeGaugeData.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "N/A"}
                       </span>
                       <span className={styles.metaLabel}>Last Measured</span>
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Weather Card */}
@@ -520,7 +543,7 @@ export default function Dashboard() {
                 <div className={styles.loadingContainer} style={{ flexDirection: "column", gap: "0.5rem" }}>
                   <Info size={24} style={{ color: "var(--color-unsafe)" }} />
                   <span style={{ fontSize: "0.9rem" }}>Error loading weather: {weatherError}</span>
-                  <button onClick={fetchActiveWeatherData} className={styles.btnText} style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.5rem" }}>
+                  <button onClick={fetchWeatherData} className={styles.btnText} style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.5rem" }}>
                     <RefreshCw size={12} /> Retry
                   </button>
                 </div>
@@ -528,7 +551,6 @@ export default function Dashboard() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                   <div className={styles.weatherMain}>
                     <div className={styles.weatherLeft}>
-                      {/* Simple weather symbol proxy */}
                       <div style={{ fontSize: "2.5rem" }}>
                         {weatherData.current.main === "Rain" ? "🌧️" : weatherData.current.main === "Clouds" ? "⛅" : "☀️"}
                       </div>
@@ -546,8 +568,9 @@ export default function Dashboard() {
                       <div style={{ display: "flex", flexDirection: "column" }}>
                         <span style={{ fontSize: "0.85rem", fontWeight: "700" }}>
                           {weatherData.current.windSpeed} mph {getWindDirection(weatherData.current.windDeg)}
+                          {weatherData.current.windGust > 0 && ` (Gusts: ${Math.round(weatherData.current.windGust)} mph)`}
                         </span>
-                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Wind Cast</span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Wind & Gusts</span>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -557,9 +580,54 @@ export default function Dashboard() {
                         <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Humidity</span>
                       </div>
                     </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <Gauge size={16} style={{ color: "var(--color-primary)" }} />
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontSize: "0.85rem", fontWeight: "700" }}>
+                          {weatherData.current.pressure ? `${Math.round(weatherData.current.pressure)} hPa` : "N/A"}
+                          {weatherData.current.pressureTendency && ` (${weatherData.current.pressureTendency})`}
+                        </span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Barometer</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <Cloud size={16} style={{ color: "var(--color-primary)" }} />
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontSize: "0.85rem", fontWeight: "700" }}>
+                          {weatherData.current.cloudCover !== undefined ? `${weatherData.current.cloudCover}%` : "N/A"}
+                        </span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Cloud Cover</span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <CloudRain size={16} style={{ color: "var(--color-primary)" }} />
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontSize: "0.85rem", fontWeight: "700" }}>
+                          {weatherData.current.precipitation !== undefined ? `${weatherData.current.precipitation} in` : "0 in"}
+                        </span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Precipitation</span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* 5-day / 3-hour summary forecast strip */}
+                  {/* Golden Hours Section */}
+                  {weatherData.current.sunrise && weatherData.current.sunset && (
+                    <div style={{ display: "flex", justifyContent: "space-between", backgroundColor: "rgba(148, 163, 184, 0.03)", padding: "0.75rem", borderRadius: "10px", border: "1px solid var(--border-card)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.8rem" }}>
+                        <span style={{ color: "var(--color-optimal)" }}>🌅 Sunrise:</span>
+                        <span style={{ fontWeight: "600", color: "var(--text-main)" }}>
+                          {new Date(weatherData.current.sunrise).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.8rem" }}>
+                        <span style={{ color: "var(--color-unsafe)" }}>🌇 Sunset:</span>
+                        <span style={{ fontWeight: "600", color: "var(--text-main)" }}>
+                          {new Date(weatherData.current.sunset).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className={styles.forecastSection}>
                     <span className={styles.forecastTitle}>Upcoming Conditions</span>
                     <div className={styles.forecastScroll}>
@@ -577,6 +645,13 @@ export default function Dashboard() {
                       })}
                     </div>
                   </div>
+
+                  {/* Provider Info */}
+                  {weatherData.provider && (
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", textAlign: "right", marginTop: "-0.5rem" }}>
+                      Source: {weatherData.provider}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -589,13 +664,13 @@ export default function Dashboard() {
               </h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem", lineHeight: "1.5" }}>
                 <p style={{ fontSize: "0.95rem" }}>
-                  {activeRiver.description}
+                  {corridor.description}
                 </p>
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-card)", borderRadius: "8px", padding: "0.75rem" }}>
                   <span style={{ fontSize: "0.85rem", fontWeight: "750", color: "var(--text-muted)" }}>TROUT SPECIES IN SEASON</span>
                   <ul style={{ listStyleType: "none", display: "flex", gap: "0.5rem" }}>
-                    {activeRiver.species.map((s, i) => (
+                    {corridor.species.map((s, i) => (
                       <li key={i} style={{ fontSize: "0.85rem", background: "var(--bg-page)", border: "1px solid var(--border-card)", borderRadius: "4px", padding: "0.2rem 0.5rem", fontWeight: "600" }}>
                         {s}
                       </li>
@@ -606,7 +681,7 @@ export default function Dashboard() {
                 {/* Stocking Details */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-card)", borderRadius: "8px", padding: "0.75rem" }}>
                   <span style={{ fontSize: "0.85rem", fontWeight: "750", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                    🐟 LATEST ODNR STOCKING REPORTS
+                    🐟 LATEST STATE STOCKING REPORTS
                   </span>
                   {stockingRecords && stockingRecords.length > 0 ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.25rem" }}>
@@ -632,7 +707,7 @@ export default function Dashboard() {
                 <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", background: "rgba(245, 158, 11, 0.05)", border: "1px solid rgba(245, 158, 11, 0.2)", borderRadius: "8px", padding: "0.75rem", fontSize: "0.85rem", color: "var(--text-muted)" }}>
                   <Info size={16} style={{ color: "var(--color-marginal)", flexShrink: 0, marginTop: "0.1rem" }} />
                   <div>
-                    <strong style={{ color: "var(--text-main)" }}>Wading Safety Note:</strong> Keep checking gauge trends. Rising water levels can increase stream flow velocities, making wading extremely dangerous. Stay alerts.
+                    <strong style={{ color: "var(--text-main)" }}>Wading Safety Note:</strong> Keep checking gauge trends. Rising water levels can increase stream flow velocities, making wading extremely dangerous. Stay alert.
                   </div>
                 </div>
               </div>
@@ -653,7 +728,7 @@ export default function Dashboard() {
                 <div className={styles.loadingContainer} style={{ flexDirection: "column", gap: "0.5rem" }}>
                   <Info size={24} style={{ color: "var(--color-unsafe)" }} />
                   <span style={{ fontSize: "0.9rem" }}>Error loading reports: {reviewsError}</span>
-                  <button onClick={fetchActiveReviewsData} className={styles.btnText} style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.5rem" }}>
+                  <button onClick={fetchReviewsData} className={styles.btnText} style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.5rem" }}>
                     <RefreshCw size={12} /> Retry
                   </button>
                 </div>
@@ -737,7 +812,7 @@ export default function Dashboard() {
                     cursor: "pointer",
                     transition: "all 0.2s"
                   }}
-                  title="Toggle ODNR Fish Stocking Markers on Map"
+                  title="Toggle Fish Stocking Markers on Map"
                 >
                   🐟 {showStocking ? "Stocking: ON" : "Stocking: OFF"}
                 </button>
@@ -748,7 +823,7 @@ export default function Dashboard() {
                 </span>
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                  {activeRiver.accessPoints && activeRiver.accessPoints.map((spot) => {
+                  {corridor.accessPoints && corridor.accessPoints.map((spot) => {
                     const isSelected = activeAccessPoint?.id === spot.id;
                     return (
                       <div 
@@ -849,7 +924,7 @@ export default function Dashboard() {
                     style={{ border: 0, minHeight: "450px" }}
                     loading="lazy"
                     allowFullScreen
-                    src={`/map.html?lat=${activeAccessPoint.latitude}&lon=${activeAccessPoint.longitude}&mode=${mapMode}&name=${encodeURIComponent(activeAccessPoint.name)}`}
+                    src={`/map.html?lat=${activeAccessPoint.latitude}&lon=${activeAccessPoint.longitude}&mode=${mapMode}&name=${encodeURIComponent(activeAccessPoint.name)}&v=20260719_1`}
                   ></iframe>
                 </div>
               ) : (

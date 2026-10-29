@@ -79,10 +79,63 @@
 
     // Stocking Layer Setup
     const stockingLayer = L.layerGroup();
+    // Gauges Layer Setup
+    const gaugesLayer = L.layerGroup().addTo(map);
 
     // Listen for messages from parent window to change mode or location dynamically
     window.addEventListener('message', (event) => {
       if (!event.data) return;
+
+      if (event.data.type === 'show_state_rivers') {
+        // Clear all layers except tile layers
+        map.eachLayer((layer) => {
+          if (layer !== satelliteLayer && layer !== topoLayer) {
+            map.removeLayer(layer);
+          }
+        });
+
+        const rivers = event.data.rivers || [];
+        const bounds = [];
+
+        rivers.forEach(river => {
+          const latLng = [river.latitude, river.longitude];
+          bounds.push(latLng);
+
+          const customIcon = L.divIcon({
+            html: '<div style="font-size: 24px; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.6)); text-align: center; cursor: pointer;" title="' + river.name + '">📍</div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            className: ''
+          });
+
+          const m = L.marker(latLng, { icon: customIcon }).addTo(map);
+          m.bindPopup(`
+            <div style="font-family: ui-sans-serif, system-ui; font-size: 0.85rem; line-height: 1.4; color: #f9fafb; padding: 0.25rem;">
+              <h4 style="margin: 0 0 0.25rem 0; color: #86efac; font-size: 0.95rem; font-weight: 700;">${river.name}</h4>
+              <div style="color: #cbd5e1; margin-bottom: 0.5rem;">Optimal: ${river.flowRange.min}-${river.flowRange.max} cfs</div>
+              <button onclick="window.parent.postMessage({ type: 'select_river', riverId: '${river.id}', state: '${river.state}' }, '*')" style="
+                background: #86efac;
+                color: #0f172a;
+                border: none;
+                padding: 0.4rem 0.75rem;
+                border-radius: 6px;
+                font-weight: 700;
+                cursor: pointer;
+                font-size: 0.75rem;
+                width: 100%;
+                text-align: center;
+                transition: background 0.2s;
+              ">
+                Explore Stream &rarr;
+              </button>
+            </div>
+          `);
+        });
+
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }
+      }
 
       if (event.data.type === 'update_map') {
         const newLat = event.data.lat;
@@ -108,6 +161,31 @@
             map.removeLayer(topoLayer);
           }
           satelliteLayer.addTo(map);
+        }
+
+        // Update gauges
+        gaugesLayer.clearLayers();
+        if (event.data.gauges && event.data.gauges.length > 0) {
+          event.data.gauges.forEach(gauge => {
+            const gaugeIcon = L.divIcon({
+              html: `<div style="font-size: 24px; filter: drop-shadow(0px 2px 3px rgba(0,0,0,0.6)); text-align: center; cursor: pointer; opacity: ${gauge.isActive ? '1' : '0.6'};" title="${gauge.name}">🌊</div>`,
+              iconSize: [24, 24],
+              iconAnchor: [12, 12],
+              className: ''
+            });
+            const m = L.marker([gauge.lat, gauge.lon], { icon: gaugeIcon });
+            m.bindPopup(`
+              <div style="font-family: ui-sans-serif, system-ui; font-size: 0.85rem; line-height: 1.4; color: #f9fafb; padding: 0.25rem;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #38bdf8; font-size: 0.95rem; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.25rem;">🌊 USGS River Gage</h4>
+                <div style="display: grid; gap: 0.25rem;">
+                  <div><b>Name:</b> ${gauge.name}</div>
+                  <div><b>Gage ID:</b> ${gauge.id}</div>
+                  <div><b>Status:</b> ${gauge.isActive ? '<span style="color: #86efac;">Active</span>' : 'Inactive'}</div>
+                </div>
+              </div>
+            `);
+            gaugesLayer.addLayer(m);
+          });
         }
       }
 

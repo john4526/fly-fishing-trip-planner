@@ -2,20 +2,17 @@
 
 .container {
   min-height: 100vh;
-  color: #f3f4f6;
+  color: var(--text-main);
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
-  background-color: #0b0f19;
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 40%);
+  background-color: var(--bg-page);
 }
 
 .appHeader {
-  background: rgba(17, 24, 39, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-bottom: 1px solid var(--border-card);
   padding: 1.25rem 2rem;
   position: sticky;
   top: 0;
@@ -102,14 +99,14 @@
 }
 
 .statCard {
-  background: rgba(17, 24, 39, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   padding: 1.25rem;
   display: flex;
   align-items: center;
   gap: 1rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-main);
 }
 
 .statIcon {

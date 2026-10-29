@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>State Region Vector Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    html, body, #map {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background: #1e293b; /* Lightened from #0f172a */
+    }
+    
+    /* Lighten map tiles by 20% */
+    .leaflet-tile-pane {
+      filter: brightness(1.2) contrast(0.95);
+    }
+    
+    /* Custom controls styling */
+    .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+      background-color: rgba(30, 41, 59, 0.95) !important;
+      color: #cbd5e1 !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    }
+    .leaflet-control-zoom {
+      border: none !important;
+    }
+    .leaflet-bar {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    .leaflet-popup-content-wrapper {
+      background: #1e293b !important;
+      color: #f8fafc !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .leaflet-popup-tip {
+      background: #1e293b !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const stateId = params.get('stateId') || 'ohio';
+
+    // State Centers & Zoom Level Configurations
+    const STATE_CONFIGS = {
+      ohio: { center: [40.35, -82.85], zoom: 7, fips: '39' },
+      michigan: { center: [44.15, -85.20], zoom: 7, fips: '26' },
+      pennsylvania: { center: [40.90, -77.80], zoom: 7, fips: '42' },
+      'west-virginia': { center: [38.65, -80.60], zoom: 7, fips: '54' },
+      tennessee: { center: [35.80, -86.00], zoom: 7, fips: '47' },
+      'north-carolina': { center: [35.50, -80.00], zoom: 7, fips: '37' },
+      montana: { center: [47.00, -110.00], zoom: 6, fips: '30' }
+    };
+
+    const config = STATE_CONFIGS[stateId] || STATE_CONFIGS.ohio;
+
+    // Define River paths and Corridor shapes
+    const CORRIDOR_GEOMETRIES = {
+      // OHIO
+      'mad-river': {
+        name: 'Mad River Corridor',
+        riverPath: [[40.2483, -83.7589], [40.1983, -83.7789], [40.1425, -83.7842], [40.1062, -83.7974]],
+        corridorPolygon: [[40.27, -83.71], [40.27, -83.78], [40.19, -83.82], [40.08, -83.83], [40.08, -83.75], [40.19, -83.73]]
+      },
+      'clear-fork': {
+        name: 'Clear Fork Corridor',
+        riverPath: [[40.6214, -82.5127], [40.6175, -82.4950], [40.6133, -82.4735]],
+        corridorPolygon: [[40.64, -82.53], [40.64, -82.44], [40.59, -82.44], [40.59, -82.53]]
+      },
+      'chagrin-river': {
+        name: 'Chagrin River Corridor',
+        riverPath: [[41.6152, -81.4211], [41.6280, -81.4150], [41.6425, -81.4068]],
+        corridorPolygon: [[41.66, -81.44], [41.66, -81.38], [41.59, -81.39], [41.59, -81.45]]
+      },
+      'little-miami': {
+        name: 'Little Miami Corridor',
+        riverPath: [[39.1748, -84.2961], [39.1685, -84.2895]],
+        corridorPolygon: [[39.20, -84.32], [39.20, -84.26], [39.14, -84.26], [39.14, -84.32]]
+      },
+      // MICHIGAN
+      'au-sable': {
+        name: 'Au Sable Holy Waters Corridor',
+        riverPath: [[44.6614, -84.7147], [44.6720, -84.6500], [44.6852, -84.5912]],
+        corridorPolygon: [[44.71, -84.73], [44.71, -84.56], [44.63, -84.56], [44.63, -84.73]]
+      },
+      'manistee-river': {
+        name: 'Manistee CCC Bridge Corridor',
+        riverPath: [[44.6415, -84.8115], [44.5800, -84.8800], [44.5218, -84.9542]],
+        corridorPolygon: [[44.67, -84.78], [44.67, -84.99], [44.49, -84.99], [44.49, -84.78]]
+      },
+      // PENNSYLVANIA
+      'spring-creek': {
+        name: 'Spring Creek Limestone Corridor',
+        riverPath: [[40.8356, -77.7889], [40.8712, -77.7785], [40.9115, -77.7785], [40.9412, -77.7915]],
+        corridorPolygon: [[40.96, -77.82], [40.96, -77.73], [40.81, -77.73], [40.81, -77.82]]
+      },
+      'penns-creek': {
+        name: 'Penns Creek Gorge Corridor',
+        riverPath: [[40.8678, -77.4589], [40.8500, -77.4400], [40.8361, -77.4215]],
+        corridorPolygon: [[40.89, -77.49], [40.89, -77.39], [40.81, -77.39], [40.81, -77.49]]
+      },
+      // WEST VIRGINIA
+      'elk-river': {
+        name: 'Elk River Headwaters Corridor',
+        riverPath: [[38.4807, -80.4079], [38.4500, -80.4500], [38.4200, -80.5000]],
+        corridorPolygon: [[38.52, -80.37], [38.52, -80.53], [38.38, -80.53], [38.38, -80.37]]
+      },
+      // TENNESSEE
+      'south-holston': {
+        name: 'South Holston River Corridor',
+        riverPath: [[36.5273, -82.1021], [36.5100, -82.1200], [36.4900, -82.1400]],
+        corridorPolygon: [[36.56, -82.07], [36.56, -82.17], [36.45, -82.17], [36.45, -82.07]]
+      },
+      // NORTH CAROLINA
+      'davidson-river': {
+        name: 'Davidson River Corridor',
+        riverPath: [[35.2754, -82.7118], [35.2820, -82.7250], [35.2900, -82.7400]],
+        corridorPolygon: [[35.31, -82.68], [35.31, -82.77], [35.24, -82.77], [35.24, -82.68]]
+      },
+      // MONTANA
+      'madison-river': {
+        name: 'Madison River Corridor',
+        riverPath: [[44.8211, -111.1961], [44.8500, -111.2300], [44.9000, -111.2800], [44.9500, -111.3200]],
+        corridorPolygon: [[45.02, -111.14], [45.02, -111.38], [44.75, -111.38], [44.75, -111.14]]
+      },
+      'missouri-river': {
+        name: 'Missouri River Corridor',
+        riverPath: [[47.0736, -111.9625], [47.1000, -111.9800], [47.1500, -112.0000]],
+        corridorPolygon: [[47.20, -111.90], [47.20, -112.10], [47.00, -112.10], [47.00, -111.90]]
+      },
+      'yellowstone-river': {
+        name: 'Yellowstone River Corridor',
+        riverPath: [[45.6586, -110.5608], [45.6300, -110.6000], [45.6000, -110.6500]],
+        corridorPolygon: [[45.72, -110.45], [45.72, -110.75], [45.50, -110.75], [45.50, -110.45]]
+      },
+      'gallatin-river': {
+        name: 'Gallatin River Corridor',
+        riverPath: [[45.4985, -111.2683], [45.4500, -111.2500], [45.4000, -111.2300]],
+        corridorPolygon: [[45.55, -111.15], [45.55, -111.35], [45.35, -111.35], [45.35, -111.15]]
+      },
+      'bighorn-river': {
+        name: 'Bighorn River Corridor',
+        riverPath: [[45.3263, -107.9406], [45.3500, -107.9200], [45.4000, -107.9000]],
+        corridorPolygon: [[45.45, -107.82], [45.45, -108.02], [45.25, -108.02], [45.25, -107.82]]
+      },
+      'bitterroot-river': {
+        name: 'Bitterroot River Corridor',
+        riverPath: [[45.9983, -114.1583], [46.0500, -114.1600], [46.1000, -114.1700]],
+        corridorPolygon: [[46.15, -114.05], [46.15, -114.25], [45.90, -114.25], [45.90, -114.05]]
+      },
+      'clark-fork-river': {
+        name: 'Clark Fork River Corridor',
+        riverPath: [[46.8711, -113.9928], [46.8500, -114.0500], [46.8300, -114.1000]],
+        corridorPolygon: [[46.92, -113.90], [46.92, -114.20], [46.75, -114.20], [46.75, -113.90]]
+      },
+      'blackfoot-river': {
+        name: 'Blackfoot River Corridor',
+        riverPath: [[46.8986, -113.8647], [46.9200, -113.8000], [46.9500, -113.7300]],
+        corridorPolygon: [[47.00, -113.65], [47.00, -113.95], [46.80, -113.95], [46.80, -113.65]]
+      },
+      'smith-river': {
+        name: 'Smith River Corridor',
+        riverPath: [[47.1994, -111.4117], [47.1500, -111.3500], [47.1000, -111.3000]],
+        corridorPolygon: [[47.25, -111.20], [47.25, -111.50], [47.00, -111.50], [47.00, -111.20]]
+      },
+      // OHIO New Additions
+      'conneaut-creek': {
+        name: 'Conneaut Creek',
+        riverPath: [[41.93, -80.56], [41.90, -80.60], [41.87, -80.63]],
+        corridorPolygon: [[41.95, -80.53], [41.95, -80.66], [41.85, -80.66], [41.85, -80.53]]
+      },
+      'rocky-river': {
+        name: 'Rocky River',
+        riverPath: [[41.48, -81.83], [41.43, -81.85], [41.38, -81.87]],
+        corridorPolygon: [[41.52, -81.80], [41.52, -81.90], [41.35, -81.90], [41.35, -81.80]]
+      },
+      'vermilion-river': {
+        name: 'Vermilion River',
+        riverPath: [[41.40, -82.35], [41.35, -82.32], [41.30, -82.30]],
+        corridorPolygon: [[41.45, -82.38], [41.45, -82.25], [41.25, -82.25], [41.25, -82.38]]
+      },
+      'grand-river': {
+        name: 'Grand River',
+        riverPath: [[41.73, -81.25], [41.70, -81.20], [41.67, -81.15]],
+        corridorPolygon: [[41.78, -81.30], [41.78, -81.10], [41.62, -81.10], [41.62, -81.30]]
+      },
+      'ashtabula-river': {
+        name: 'Ashtabula River',
+        riverPath: [[41.87, -80.78], [41.83, -80.75], [41.80, -80.73]],
+        corridorPolygon: [[41.92, -80.82], [41.92, -80.68], [41.75, -80.68], [41.75, -80.82]]
+      },
+      'mohican-river': {
+        name: 'Mohican River',
+        riverPath: [[40.63, -82.23], [40.60, -82.25], [40.57, -82.28]],
+        corridorPolygon: [[40.68, -82.20], [40.68, -82.33], [40.52, -82.33], [40.52, -82.20]]
+      },
+      'scioto-river': {
+        name: 'Scioto River',
+        riverPath: [[39.96, -83.00], [39.80, -83.00], [39.60, -83.00]],
+        corridorPolygon: [[40.00, -82.90], [40.00, -83.10], [39.50, -83.10], [39.50, -82.90]]
+      },
+      'clear-creek': {
+        name: 'Clear Creek',
+        riverPath: [[39.58, -82.60], [39.55, -82.62], [39.52, -82.65]],
+        corridorPolygon: [[39.62, -82.55], [39.62, -82.70], [39.48, -82.70], [39.48, -82.55]]
+      },
+      'tuscarawas-river': {
+        name: 'Tuscarawas River',
+        riverPath: [[40.80, -81.52], [40.75, -81.52], [40.70, -81.55]],
+        corridorPolygon: [[40.85, -81.45], [40.85, -81.60], [40.65, -81.60], [40.65, -81.45]]
+      },
+      'big-darby-creek': {
+        name: 'Big Darby Creek',
+        riverPath: [[39.75, -83.18], [39.70, -83.18], [39.65, -83.20]],
+        corridorPolygon: [[39.80, -83.10], [39.80, -83.25], [39.60, -83.25], [39.60, -83.10]]
+      },
+      'olentangy-river': {
+        name: 'Olentangy River',
+        riverPath: [[40.30, -83.06], [40.20, -83.05], [40.10, -83.03]],
+        corridorPolygon: [[40.35, -83.00], [40.35, -83.15], [40.05, -83.15], [40.05, -83.00]]
+      },
+      // MICHIGAN New Additions
+      'pere-marquette': {
+        name: 'Pere Marquette River',
+        riverPath: [[43.90, -85.85], [43.92, -85.90], [43.95, -85.95]],
+        corridorPolygon: [[43.98, -85.80], [43.98, -86.00], [43.85, -86.00], [43.85, -85.80]]
+      },
+      'boardman-river': {
+        name: 'Boardman River',
+        riverPath: [[44.75, -85.60], [44.72, -85.62], [44.68, -85.65]],
+        corridorPolygon: [[44.80, -85.55], [44.80, -85.70], [44.62, -85.70], [44.62, -85.55]]
+      },
+      'muskegon-river': {
+        name: 'Muskegon River',
+        riverPath: [[43.42, -85.80], [43.38, -85.85], [43.35, -85.90]],
+        corridorPolygon: [[43.47, -85.75], [43.47, -85.95], [43.30, -85.95], [43.30, -85.75]]
+      },
+      'white-river': {
+        name: 'White River',
+        riverPath: [[43.40, -86.30], [43.43, -86.25], [43.45, -86.20]],
+        corridorPolygon: [[43.48, -86.35], [43.48, -86.15], [43.35, -86.15], [43.35, -86.35]]
+      },
+      'huron-river': {
+        name: 'Huron River',
+        riverPath: [[42.28, -83.74], [42.30, -83.78], [42.33, -83.82]],
+        corridorPolygon: [[42.36, -83.70], [42.36, -83.88], [42.22, -83.88], [42.22, -83.70]]
+      },
+      // PENNSYLVANIA New Additions
+      'little-juniata': {
+        name: 'Little Juniata River',
+        riverPath: [[40.60, -78.13], [40.63, -78.10], [40.65, -78.07]],
+        corridorPolygon: [[40.68, -78.17], [40.68, -78.02], [40.55, -78.02], [40.55, -78.17]]
+      },
+      'yellow-breeches': {
+        name: 'Yellow Breeches Creek',
+        riverPath: [[40.15, -77.13], [40.12, -77.10], [40.10, -77.07]],
+        corridorPolygon: [[40.20, -77.18], [40.20, -77.02], [40.05, -77.02], [40.05, -77.18]]
+      },
+      'pine-creek': {
+        name: 'Pine Creek',
+        riverPath: [[41.52, -77.45], [41.48, -77.47], [41.44, -77.49]],
+        corridorPolygon: [[41.57, -77.40], [41.57, -77.55], [41.40, -77.55], [41.40, -77.40]]
+      },
+      'letort-spring-run': {
+        name: 'Letort Spring Run',
+        riverPath: [[40.20, -77.18], [40.22, -77.17], [40.24, -77.16]],
+        corridorPolygon: [[40.26, -77.21], [40.26, -77.13], [40.18, -77.13], [40.18, -77.21]]
+      },
+      'brodhead-creek': {
+        name: 'Brodhead Creek',
+        riverPath: [[41.02, -75.18], [41.05, -75.20], [41.08, -75.22]],
+        corridorPolygon: [[41.11, -75.14], [41.11, -75.26], [40.98, -75.26], [40.98, -75.14]]
+      }
+    };
+
+    // Initialize Leaflet map with standard dark mode base tiles
+    const map = L.map('map', {
+      zoomControl: true,
+      attributionControl: true
+    }).setView(config.center, config.zoom);
+
+    // Muted dark terrain mapping
+    const darkTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }).addTo(map);
+
+    // 1. Load local states-counties GeoJSON and highlight regions (counties)
+    fetch('/maps/states-counties.json')
+      .then(res => res.json())
+      .then(geoJson => {
+        L.geoJSON(geoJson, {
+          filter: (feature) => {
+            const fips = feature.id || feature.properties.STATE;
+            return fips && fips.startsWith(config.fips);
+          },
+          style: {
+            fillColor: 'rgba(71, 85, 105, 0.5)', // Brighter Slate land fill
+            color: 'rgba(255, 255, 255, 0.35)',  // Brighter county borders
+            weight: 1.2,
+            fillOpacity: 1
+          }
+        }).addTo(map);
+
+        // 2. Render the specific River Corridors for this state
+        Object.entries(CORRIDOR_GEOMETRIES).forEach(([id, geom]) => {
+          // Check if this corridor belongs to the active state using page configurations
+          const isOh = ['mad-river', 'clear-fork', 'chagrin-river', 'little-miami', 'conneaut-creek', 'rocky-river', 'vermilion-river', 'grand-river', 'ashtabula-river', 'mohican-river', 'scioto-river', 'clear-creek', 'tuscarawas-river', 'big-darby-creek', 'olentangy-river'].includes(id) && stateId === 'ohio';
+          const isMi = ['au-sable', 'manistee-river', 'pere-marquette', 'boardman-river', 'muskegon-river', 'white-river', 'huron-river'].includes(id) && stateId === 'michigan';
+          const isPa = ['spring-creek', 'penns-creek', 'little-juniata', 'yellow-breeches', 'pine-creek', 'letort-spring-run', 'brodhead-creek'].includes(id) && stateId === 'pennsylvania';
+          const isWv = ['elk-river'].includes(id) && stateId === 'west-virginia';
+          const isTn = ['south-holston'].includes(id) && stateId === 'tennessee';
+          const isNc = ['davidson-river'].includes(id) && stateId === 'north-carolina';
+          const isMt = ['madison-river', 'missouri-river', 'yellowstone-river', 'gallatin-river', 'bighorn-river', 'bitterroot-river', 'clark-fork-river', 'blackfoot-river', 'smith-river'].includes(id) && stateId === 'montana';
+
+          if (isOh || isMi || isPa || isWv || isTn || isNc || isMt) {
+            // Draw shaded corridor boundary shape
+            const corridorPoly = L.polygon(geom.corridorPolygon, {
+              color: '#10b981',       // Emerald border
+              fillColor: '#10b981',
+              fillOpacity: 0.12,
+              weight: 2,
+              dashArray: '6, 6',
+              cursor: 'pointer'
+            }).addTo(map);
+
+            // Draw clear river line
+            const riverLine = L.polyline(geom.riverPath, {
+              color: '#38bdf8',       // Water blue line
+              weight: 5,
+              opacity: 0.9,
+              cursor: 'pointer'
+            }).addTo(map);
+
+            // Setup hover animations and click actions on both geometries
+            const highlightStyles = () => {
+              corridorPoly.setStyle({ fillOpacity: 0.32, weight: 3 });
+              riverLine.setStyle({ color: '#86efac', weight: 7 }); // Glow green on hover
+            };
+
+            const resetStyles = () => {
+              corridorPoly.setStyle({ fillOpacity: 0.12, weight: 2 });
+              riverLine.setStyle({ color: '#38bdf8', weight: 5 });
+            };
+
+            // Bind interactions
+            const title = geom.name.replace(' Corridor', '');
+            const popupContent = `
+              <div style="font-family: system-ui; padding: 0.25rem;">
+                <h4 style="margin: 0 0 0.25rem 0; color: #86efac; font-size: 0.95rem; font-weight: 700;">${title}</h4>
+                <div style="color: #cbd5e1; font-size: 0.8rem; margin-bottom: 0.5rem;">Protected Fishing Zone</div>
+                <div style="font-size: 0.75rem; color: #86efac; font-weight: 700; cursor: pointer;">Click to Select Corridor &rarr;</div>
+              </div>
+            `;
+
+            [corridorPoly, riverLine].forEach(layer => {
+              layer.bindPopup(popupContent, { closeButton: false });
+              layer.on('mouseover', (e) => {
+                highlightStyles();
+                layer.openPopup(e.latlng);
+              });
+              layer.on('mouseout', () => {
+                resetStyles();
+                layer.closePopup();
+              });
+              layer.on('click', () => {
+                window.parent.postMessage({
+                  type: 'select_river_corridor',
+                  corridorId: id
+                }, '*');
+              });
+            });
+          }
+        });
+      })
+      .catch(err => console.error('Error loading county mapping boundaries:', err));
+
+    // Group for active access point and gauges
+    const activeMarkersGroup = L.layerGroup().addTo(map);
+
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (data.type === 'update_map') {
+        activeMarkersGroup.clearLayers();
+        
+        // Plot active access point
+        if (data.lat && data.lon) {
+          L.marker([data.lat, data.lon]).addTo(activeMarkersGroup)
+           .bindPopup(`<b>${data.name}</b><br>Access Point`).openPopup();
+          
+          // Pan map to access point
+          map.setView([data.lat, data.lon], 11);
+        }
+
+        // Plot USGS gauges
+        if (data.gauges && Array.isArray(data.gauges)) {
+          data.gauges.forEach(g => {
+            const circleColor = g.isActive ? '#ef4444' : '#3b82f6';
+            L.circleMarker([g.lat, g.lon], {
+              radius: 8,
+              fillColor: circleColor,
+              color: '#ffffff',
+              weight: 2,
+              opacity: 1,
+              fillOpacity: 0.8
+            }).addTo(activeMarkersGroup)
+              .bindPopup(`<b>${g.name}</b><br>USGS Gauge: ${g.id}`);
+          });
+        }
+      }
+    });
+  </script>
+</body>
+</html>

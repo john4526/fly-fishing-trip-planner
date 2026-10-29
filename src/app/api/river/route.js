@@ -15,6 +15,7 @@ export async function GET(request) {
     });
 
     if (!response.ok) {
+      console.error("USGS API failed with status:", response.status, "for siteId:", siteId);
       return NextResponse.json({ error: `USGS API returned status ${response.status}` }, { status: response.status });
     }
 
@@ -30,8 +31,16 @@ export async function GET(request) {
     let height = null;
     let heightUnit = "ft";
     let timestamp = null;
+    let latitude = null;
+    let longitude = null;
 
     data.features.forEach((feature) => {
+      // Extract coordinates if available
+      if (feature.geometry && feature.geometry.type === 'Point' && feature.geometry.coordinates) {
+        longitude = feature.geometry.coordinates[0];
+        latitude = feature.geometry.coordinates[1];
+      }
+
       const props = feature.properties;
       if (!props) return;
 
@@ -58,7 +67,9 @@ export async function GET(request) {
       flowUnit,
       height,
       heightUnit,
-      timestamp
+      timestamp,
+      latitude,
+      longitude
     });
 
   } catch (error) {

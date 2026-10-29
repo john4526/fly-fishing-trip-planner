@@ -48,3 +48,18 @@ This document catalogs all test conditions for the Fly Fishing Trip Planner. As 
 ## 9. Admin Kanban Board
 - **Access Control**: Verify that only users with the `isAdmin` flag in Firestore can see the "Admin Dashboard" link and access the Kanban board.
 - **Task Management**: Verify that admins can create, move, and delete kanban cards.
+
+## 10. State-Based Site Architecture (New Layout)
+- **Landing Page (`/`)**: Verify that visiting `/` greets the user with 7 state cards (Ohio, Michigan, Pennsylvania, West Virginia, Tennessee, North Carolina, Montana) showing state abbreviation, description, and corridor counts.
+- **State Overview (`/states/[stateId]`)**: Verify that clicking any state card navigates to `/states/[stateId]` and renders a split-screen layout with the interactive SVG vector map on the left and the corridor list cards on the right.
+- **State Vector Map**: Verify that hovering over river path segments on the vector map highlights the line and displays a floating tooltip with name, location, and click instruction.
+- **Corridor Dashboard (`/states/[stateId]/corridors/[corridorId]`)**: Verify that clicking a river corridor (either on the map or in the cards list) navigates to the detailed corridor dashboard `/states/[stateId]/corridors/[corridorId]`.
+- **Navigation Flow**: Verify that the "Back to States" button on `/states/[stateId]` and the "Back to [State] Map" button on the corridor details sidebar return the user to the correct parent views.
+
+## 11. Automated Vertical Slice Jest Suites
+All manual test conditions are backed by automated Jest integration tests in `src/__tests__/`:
+- **`src/__tests__/river-corridors.test.js`**: Validates 7-state configuration integrity, flow status thresholds (`Too Low`, `Optimal Flow`, `Too High / Unsafe`), and coordinate bounds.
+- **`src/__tests__/weather-api.test.js`**: Validates `/api/weather` query validation (400 response on missing coordinates) and OpenWeather data transformation.
+- **`src/__tests__/auth-favorites.test.js`**: Validates `AuthContext` state logic, admin email authorization checks, and favorites array toggling.
+
+

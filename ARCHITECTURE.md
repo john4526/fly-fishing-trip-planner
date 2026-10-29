@@ -18,7 +18,9 @@ graph TD
     User([User / Angler])
 
     subgraph "Next.js Frontend (Client)"
-        Dashboard[Dashboard Client Component]:::client
+        Landing[Landing Page Card Grid]:::client
+        StateOverview[State Page / Vector Map]:::client
+        CorridorDetails[Corridor Detail Dashboard]:::client
         Auth[Auth Context]:::client
         Map[Leaflet Map Iframe]:::client
         Admin[Kanban Admin Board]:::client
@@ -32,7 +34,7 @@ graph TD
     end
 
     subgraph "Data & Configuration"
-        StaticConfig[(Rivers & Config JS)]:::static
+        StaticConfig[(Rivers & States Config JS)]:::static
         StockingCSV[(Stocking CSV)]:::static
         EnvConfig[env.js Validation]:::static
     end
@@ -49,20 +51,23 @@ graph TD
     end
 
     %% User Interactions
-    User -->|Views Conditions| Dashboard
+    User -->|Selects State| Landing
+    Landing -->|Navigates| StateOverview
+    StateOverview -->|Selects River| CorridorDetails
     User -->|Logs In| Auth
     User -->|Manages Tasks| Admin
 
     %% Frontend to Backend
-    Dashboard -->|Fetches| WeatherAPI
-    Dashboard -->|Fetches| RiverAPI
-    Dashboard -->|Fetches| ReviewsAPI
-    Dashboard -->|Fetches| StockingAPI
-    Dashboard -->|Reads| StaticConfig
+    CorridorDetails -->|Fetches| WeatherAPI
+    CorridorDetails -->|Fetches| RiverAPI
+    CorridorDetails -->|Fetches| ReviewsAPI
+    CorridorDetails -->|Fetches| StockingAPI
+    StateOverview -->|Reads| StaticConfig
+    CorridorDetails -->|Reads| StaticConfig
 
     %% Auth & DB
     Auth <--> FirebaseAuth
-    Dashboard <-->|Saves Favorites| Firestore
+    CorridorDetails <-->|Saves Favorites| Firestore
     Admin <-->|Reads/Writes Tasks| Firestore
 
     %% Backend to External APIs
@@ -72,14 +77,16 @@ graph TD
     StockingAPI -->|Parses| StockingCSV
 
     %% Context Flow
-    Auth -.->|Provides User State| Dashboard
+    Auth -.->|Provides User State| CorridorDetails
     Auth -.->|Secures| Admin
 ```
 
 ## Component Details
 
 ### 1. Frontend (Next.js App Router)
-- **Dashboard Component**: The core view aggregating all the data. Contains sub-panels for stream flow progress bars, weather forecasts, angler reports, and maps.
+- **Landing Page (`src/app/page.js`)**: A home view displaying state selection cards for Ohio, Michigan, Pennsylvania, West Virginia, Tennessee, North Carolina, and Montana.
+- **State Overview (`src/app/states/[stateId]/page.js`)**: Displays the interactive SVG map (`StateVectorMap.js`) and the state's river corridors list.
+- **Corridor Dashboard (`src/app/states/[stateId]/corridors/[corridorId]/page.js`)**: Renders details for a single corridor (`CorridorDetails.js`), aggregating river gauges, weather, local reports, and access maps.
 - **Context API (`AuthContext`)**: Handles authentication state using Firebase Auth and syncs favorite rivers to Firestore.
 - **Admin Kanban**: A private route accessible only to users with the `isAdmin` flag in Firestore, allowing task tracking.
 - **Maps**: Embeds a Leaflet map via an iframe or native React wrapper, communicating via `postMessage`.
@@ -93,4 +100,21 @@ To avoid CORS issues and secure API keys, all external data fetches happen serve
 
 ### 3. Config & State Management
 - `src/config/env.js`: Uses Zod to parse and validate environment variables (Firebase config, API keys) early to prevent runtime crashes.
-- `src/config/rivers.js`: A static array containing the master list of rivers, flow ranges, species, and access points.
+- `src/config/rivers.js`: A static configuration tree grouping river corridors dynamically under hierarchical state parameters.
+
+## Architecture Decisions & Plans
+
+Architectural decision records and proposed architectural changes are stored in the `/docs/` directory for full SDLC2 compliance:
+
+### Architectural Decision Records (ADRs)
+- [ADR 0001: Next.js App Router Architecture](file:///Users/jonathonkline/Library/CloudStorage/OneDrive-Personal/KLINE/Jon/Fly%20Fishing%20Trip%20Planner/docs/ADR/0001-nextjs-app-router-architecture.md)
+- [ADR 0002: Firebase Authentication & Firestore Persistence](file:///Users/jonathonkline/Library/CloudStorage/OneDrive-Personal/KLINE/Jon/Fly%20Fishing%20Trip%20Planner/docs/ADR/0002-firebase-auth-and-firestore-integration.md)
+- [ADR 0003: External API Proxying & Caching](file:///Users/jonathonkline/Library/CloudStorage/OneDrive-Personal/KLINE/Jon/Fly%20Fishing%20Trip%20Planner/docs/ADR/0003-external-api-proxying-and-caching.md)
+
+### Implementation Plans
+- [Weather API Redundancy Plan](file:///Users/jonathonkline/Library/CloudStorage/OneDrive-Personal/KLINE/Jon/Fly%20Fishing%20Trip%20Planner/docs/plans/weather_api_redundancy_plan.md)
+- [SDLC2 Audit & Remediation Plan](file:///Users/jonathonkline/.gemini/antigravity/brain/16cfac60-4b88-451f-9032-a1340f15f991/implementation_plan.md)
+
+### Code Cleanup Log
+- **Removed Legacy `Dashboard.js`**: Deleted 51 KB legacy monolithic dashboard component to eliminate architectural bloat after state-based App Router refactoring.
+
