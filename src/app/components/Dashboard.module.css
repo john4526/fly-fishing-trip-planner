@@ -7,6 +7,15 @@
   transition: all 0.3s ease;
 }
 
+.detailContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  transition: all 0.3s ease;
+}
+
 /* Sidebar styling */
 .sidebar {
   background-color: var(--bg-sidebar);
@@ -16,6 +25,20 @@
   flex-direction: column;
   gap: 1.5rem;
   overflow-y: auto;
+}
+
+/* Top Navigation styling */
+.topNav {
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-card);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 .brand {
@@ -250,6 +273,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
+  align-items: start;
 }
 
 .fullWidth {
@@ -626,4 +650,311 @@
   border-color: var(--color-primary);
   background: var(--bg-page);
   box-shadow: 0 4px 12px 0 rgba(2, 132, 199, 0.1);
+}
+
+/* Welcome page landing screen layout and styling */
+.welcomeContainer {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  min-height: 100vh;
+  width: 100%;
+  color: #f8fafc;
+  background-color: #0f172a;
+}
+
+.welcomeContentPanel {
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  justify-content: space-between;
+  overflow-y: auto;
+  min-height: 100vh;
+  transition: background 0.5s ease;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.welcomeMapPanel {
+  height: 100vh;
+  width: 100%;
+  position: relative;
+  background: #111827;
+}
+
+.welcomeMapIframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+@media (max-width: 1024px) {
+  .welcomeContainer {
+    grid-template-columns: 1fr;
+  }
+  .welcomeMapPanel {
+    height: 400px;
+  }
+  .welcomeContentPanel {
+    min-height: auto;
+  }
+}
+
+.welcomeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.welcomeHero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 800px;
+  margin: 4rem auto;
+  gap: 1.5rem;
+  animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.heroBadge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--color-accent);
+  background: rgba(134, 239, 172, 0.1);
+  padding: 0.4rem 1rem;
+  border-radius: 30px;
+  border: 1px solid rgba(134, 239, 172, 0.2);
+}
+
+.heroTitle {
+  font-size: 3rem;
+  font-weight: 850;
+  line-height: 1.15;
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  color: #f8fafc;
+}
+
+.heroSubtitle {
+  font-size: 1.1rem;
+  color: #cbd5e1;
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+.ctaBtn {
+  margin-top: 1.5rem;
+  background: var(--color-accent);
+  color: #0f172a;
+  border: none;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(134, 239, 172, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ctaBtn:hover {
+  transform: translateY(-2px) scale(1.03);
+  background: var(--color-accent-hover);
+  box-shadow: 0 6px 24px rgba(74, 222, 128, 0.4);
+}
+
+.stateCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.stateCard {
+  background: rgba(30, 41, 59, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.stateCard:hover {
+  transform: translateY(-4px);
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+.stateCardActive {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 32px rgba(134, 239, 172, 0.15);
+}
+
+.cardHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cardHeaderRow h3 {
+  font-size: 1.2rem;
+  font-weight: 750;
+  color: #f8fafc;
+}
+
+.cardStatsLabel {
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--color-accent);
+  background: rgba(134, 239, 172, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.stateCard p {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .stateCardsGrid {
+    grid-template-columns: 1fr;
+  }
+  .heroTitle {
+    font-size: 2.25rem;
+  }
+}
+
+.welcomeDestinationsSection {
+  margin-top: 1.5rem;
+  width: 100%;
+  max-width: 800px;
+}
+
+.welcomeDestinationsTitle {
+  font-size: 1rem;
+  font-weight: 750;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.welcomeDestinationsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  width: 100%;
+}
+
+.welcomeDestinationCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.welcomeDestinationCard:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--color-accent);
+}
+
+.destCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.destCardHeader h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.destCardLocation {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.destCardMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+
+.destCardGage {
+  color: #94a3b8;
+}
+
+.destCardSpecies {
+  font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .welcomeDestinationsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.navLinks { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+.accountArea { max-width: 24rem; min-width: 0; }
+.weatherContent { display: flex; flex-direction: column; gap: 1.25rem; }
+.weatherTimestamp { font-size: .8rem; line-height: 1.5; color: var(--text-muted); }
+.weatherTimestamp a { text-decoration: underline; }
+.weatherDetailsGrid dt { font-size: .8rem; color: var(--text-muted); }
+.weatherDetailsGrid dd { margin: .3rem 0 0; font-size: .9rem; }
+.dailyForecast { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: .5rem; margin-top: .75rem; }
+.dashboardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card { min-width: 0; overflow-wrap: anywhere; }
+.forecastScroll { max-width: 100%; }
+.forecastScroll .forecastItem { min-width: 150px; }
+.topNav { flex-wrap: wrap; gap: 1rem; }
+.card select { max-width: 100%; }
+@media (max-width: 900px) {
+  .dashboardGrid { grid-template-columns: minmax(0, 1fr); }
+  .fullWidth { grid-column: auto; }
+}
+@media (max-width: 600px) {
+  .topNav { padding: 1rem; position: static; align-items: flex-start; }
+  .navLinks { width: 100%; }
+  .accountArea { width: 100%; max-width: none; }
+  .main { padding: 1rem; }
+  .card { padding: 1rem; }
+  .headerInfo h1 { font-size: 1.6rem; }
+  .weatherMain, .flowGageMeta { flex-wrap: wrap; gap: .75rem; }
+  .tabBtn { padding: .75rem .5rem; font-size: .8rem; }
 }

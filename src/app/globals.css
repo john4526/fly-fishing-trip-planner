@@ -1,53 +1,36 @@
 :root {
-  /* Brand color tokens - consistent across themes */
-  --color-primary: #0284c7; /* Sky blue */
-  --color-primary-hover: #0369a1;
-  --color-accent: #0d9488; /* Teal */
-  --color-accent-hover: #0f766e;
+  /* Brand color tokens - Misty Morning Theme */
+  --color-primary: #94a3b8; /* Slate gray/blue */
+  --color-primary-hover: #64748b;
+  --color-accent: #86efac; /* Soft mint green */
+  --color-accent-hover: #4ade80;
   
   /* River condition status colors */
   --color-optimal: #10b981; /* Emerald green */
   --color-marginal: #f59e0b; /* Amber */
   --color-unsafe: #ef4444; /* Red */
-  --color-info: #3b82f6; /* Blue */
+  --color-info: #94a3b8; /* Slate */
 
-  /* Light Theme Variables */
-  --bg-page: #f8fafc;
-  --bg-sidebar: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.75);
-  --border-card: rgba(226, 232, 240, 0.8);
-  --border-focus: #0284c7;
-  --text-main: #0f172a;
+  /* Light Theme Variables (Misty Morning) */
+  --bg-page: #f1f5f9; /* Fog gray */
+  --bg-sidebar: #e2e8f0; /* Muted gray */
+  --bg-card: rgba(248, 250, 252, 0.85); /* Soft white glass */
+  --border-card: rgba(203, 213, 225, 0.8);
+  --border-focus: #94a3b8;
+  --text-main: #1e293b;
   --text-muted: #64748b;
-  --shadow-main: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
-  --shadow-hover: 0 12px 40px 0 rgba(31, 38, 135, 0.08);
+  --shadow-main: 0 8px 32px 0 rgba(148, 163, 184, 0.1);
+  --shadow-hover: 0 12px 40px 0 rgba(148, 163, 184, 0.2);
   --glass-blur: 16px;
 
   /* Scrollbars - Light Mode */
   --scrollbar-thumb: #cbd5e1;
   --scrollbar-track: #f1f5f9;
 
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Dark Theme Variables */
-    --bg-page: #0b0f19;
-    --bg-sidebar: #111827;
-    --bg-card: rgba(17, 24, 39, 0.6);
-    --border-card: rgba(255, 255, 255, 0.08);
-    --border-focus: #38bdf8;
-    --text-main: #f3f4f6;
-    --text-muted: #9ca3af;
-    --shadow-main: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    --shadow-hover: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
 
-    /* Scrollbars - Dark Mode */
-    --scrollbar-thumb: #374151;
-    --scrollbar-track: #1f2937;
-  }
-}
 
 /* Reset and Base Styles */
 * {
