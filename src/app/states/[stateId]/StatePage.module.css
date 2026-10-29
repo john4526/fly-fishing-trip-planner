@@ -1,0 +1,12 @@
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+.corridorHeader { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; }
+.columns > * { min-width: 0; }
+@media (max-width: 850px) {
+  .columns { grid-template-columns: minmax(0, 1fr); }
+  .mapCard { padding: 1rem !important; }
+}

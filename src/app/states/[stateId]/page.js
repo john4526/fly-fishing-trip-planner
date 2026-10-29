@@ -1,3 +1,4 @@
+import layout from "./StatePage.module.css";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ArrowRight, Fish, MapPin } from "lucide-react";
@@ -27,11 +28,11 @@ export default async function StatePage({ params }) {
         <p style={styles.heroSubtitle}>{state.description}</p>
       </section>
 
-      <div style={styles.layout}>
+      <div className={layout.columns}>
         {/* Map Section */}
-        <div className="glass" style={styles.mapCard}>
+        <div className={`glass ${layout.mapCard}`} style={styles.mapCard}>
           <h2 style={styles.cardTitle}>Interactive Corridor Map</h2>
-          <p style={styles.cardSubtitle}>Hover over highlighted river paths to see details. Click a river to open the dashboard.</p>
+          <p style={styles.cardSubtitle}>Select a highlighted river path for details, or choose a corridor from the list.</p>
           <div style={styles.mapContainer}>
             <StateVectorMap stateId={stateId} corridorIds={state.corridors.map(corridor => corridor.id)} />
           </div>
@@ -48,7 +49,7 @@ export default async function StatePage({ params }) {
                 style={styles.cardWrapper}
               >
                 <div className="glass glass-interactive" style={styles.corridorCard}>
-                  <div style={styles.corridorHeader}>
+                  <div className={layout.corridorHeader}>
                     <h3 style={styles.corridorName}>{corridor.name}</h3>
                     <div style={styles.locationContainer}>
                       <MapPin size={14} style={styles.locationIcon} />
@@ -139,12 +140,6 @@ const styles = {
     color: "var(--text-muted)",
     maxWidth: "800px",
   },
-  layout: {
-    display: "grid",
-    gridTemplateColumns: "1.2fr 1fr",
-    gap: "2rem",
-    alignItems: "start",
-  },
   mapCard: {
     borderRadius: "16px",
     padding: "2rem",
@@ -195,12 +190,6 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "1rem",
-  },
-  corridorHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "0.5rem",
   },
   corridorName: {
     fontSize: "1.2rem",

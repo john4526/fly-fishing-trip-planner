@@ -1,20 +1,19 @@
 # ADR 0003: Server-Side External API Proxying & Error Handling
 
 ## Status
-Accepted
-
-## Context
-The application fetches data from three external APIs: USGS Water Services (streamflow), OpenWeatherMap (forecasts), and Google Places (angler reviews). Calling these endpoints directly from the browser introduces CORS constraints and exposes secret API keys.
+Accepted; updated 2026-10-29 to reflect the implemented providers.
 
 ## Decision
-We implemented Next.js Route Handlers as backend proxy endpoints:
-- `/api/river`: Queries USGS Instantaneous Values REST API.
-- `/api/weather`: Proxies OpenWeatherMap 5-day / 3-hour forecast API with fallback mock data generation when API keys are absent.
-- `/api/reviews`: Proxies Google Places API for venue ratings and angler feedback.
-- `/api/stocking`: Reads and parses local CSV stocking records (`stocking_history.csv`).
+Next.js Route Handlers proxy USGS latest-continuous observations, Open-Meteo weather with an NWS hourly fallback, and Google Places reviews. Stocking history comes from a bundled CSV. Public IDs and coordinates are validated before external requests, and requests have bounded timeouts. Google search queries come from configured corridor IDs; its key remains server-only.
+
+Missing measurements remain null. Forecast rain probability is not a precipitation amount, and missing NWS gusts, pressure, humidity, cloud cover and sunrise/sunset are not fabricated. Epoch timestamps are formatted in the destination's IANA timezone. The five-day outlook summarizes available hourly periods; today may be partial. Three-hour samples cover up to 120 hours. A total weather failure returns 503 and a USGS failure returns 502.
+
+USGS readings are selected by parameter and measurement time, not response order. Missing or unrecognized values are unavailable. A newer unrelated parameter cannot refresh the flow timestamp.
 
 ## Consequences
-### Positive
-- API keys (`OPENWEATHER_API_KEY`, `GOOGLE_PLACES_API_KEY`) remain strictly server-side.
-- Zero browser CORS errors.
-- Robust error bubbling allows client components to render standard fallback states with retry options.
+- River fetches are cached five minutes, weather fifteen minutes, NWS grid metadata one day, and Places reviews one day.
+- Browser polling refreshes river and weather data while canceling obsolete requests. Failed refreshes keep previous values with an explicit error.
+- The browser still loads map tiles and boundaries directly. Proxying conditions does not make maps available offline.
+- Provider availability, rate limits, and usage terms remain operational constraints. No fabricated fallback data is returned.
+
+Contracts: [USGS](https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous), [Open-Meteo](https://open-meteo.com/en/docs), [NWS](https://www.weather.gov/documentation/services-web-api).
