@@ -91,3 +91,22 @@ Automated coverage for this phase: `auth-favorites.test.js` exercises the provid
 - **Delivery:** CI must pass `npm run lint`, `npm test -- --runInBand`, and `npm run build` without production secrets. Keep SSH keys, environment files, and private access notes out of commits.
 
 Automated additions: `river-api.test.js`, `conditions-ui.test.js`, and `kanban-storage.test.js`. The existing corridor suite now calls the production flow classifier; `weather-api.test.js` exercises both real normalizers. Phone-width and map-tile rendering are visual checks, not claims of automated browser coverage. Firestore rule deployment remains a separate prerequisite.
+
+## 14. Firebase deployment and private hosting
+
+Run `npm run test:rules` with Java 21. `scripts/check-firestore-rules.mjs` exercises the actual `firestore.rules` in the loopback emulator:
+
+- An owner can create and read their document, atomically add/remove favorites, and delete the document.
+- Unauthenticated clients and another account cannot read, create, update, or delete someone else's document.
+- Client writes cannot create or modify `admin` or `role` fields, including replacing a complete document. Server-managed fields remain intact during favorites updates.
+- Favorites must be a list; 100 entries are allowed, 101 entries, missing values, null, strings, and maps are denied.
+- Other collections and nested documents remain inaccessible, including to a client with an admin token.
+- The test entry point refuses to run without `127.0.0.1:8180`; the runner always selects `demo-fishing-planner`, never a live project.
+
+Release checks requiring the deployed environment:
+
+- Confirm Email/Password is enabled in the intended Firebase project and the tailnet hostname is authorized. Verify signup, sign-in, sign-out, refresh persistence, and favorites with test accounts; remove test accounts and documents afterwards.
+- Deploy the tested rules explicitly before account use. Repeat owner access and cross-user denial checks against the new project.
+- Test the exact Linux release on a separate loopback port with its build-time Firebase configuration. Verify landing, state, corridor, API validation, current conditions, maps, and account form availability.
+- Verify HTTPS using normal certificate validation from a tailnet client; confirm Serve has no Funnel exposure and Next.js listens only on loopback.
+- Verify only the fishing app changes during cutover, the previous release remains available, the final process is saved for reboot, and unrelated apps still respond. Record the release commit, smoke results, and rollback commands in private operations notes.

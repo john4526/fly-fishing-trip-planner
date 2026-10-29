@@ -6,6 +6,9 @@ StreamPlanner uses Next.js 16 App Router and React 19. Server-rendered state and
 
 ```mermaid
 flowchart TD
+    Browser[Tailnet-connected browser] --> TLS[Tailscale Serve HTTPS]
+    TLS --> Next[Loopback Next.js process]
+    Next --> Landing
     Config[States and corridors config] --> Landing[Landing page]
     Config --> State[State overview]
     Config --> Corridor[Corridor dashboard]
@@ -63,6 +66,10 @@ Flow older than one hour is labeled stale; a newer temperature or height reading
 
 ## Delivery and verification
 
-Local Git branches are reviewed through pull requests. CI runs npm install from the lockfile, lint, Jest, and a production build without production credentials. Application deployment and Firebase rule deployment are separate steps; this change does not perform either.
+Local Git branches are reviewed through pull requests. CI uses Node.js 24 and runs npm install from the lockfile, lint, Jest, the Firestore rules emulator suite with Java 21, and a production build without production credentials. The emulator uses a fixed loopback address and a `demo-` project; its test entry point refuses to run without that emulator.
+
+The private server deployment terminates HTTPS at Tailscale Serve and proxies to Next.js on loopback. It does not use Tailscale Funnel. A separate HTTPS port keeps other hosted applications' routes independent. Tailnet access controls determine who can reach the website; Firebase's public cloud endpoints still enforce ID-token authentication and per-user Firestore rules.
+
+Application deployment and Firebase rule deployment are separate steps. Test and deploy rules to the explicit project before enabling accounts. Build a versioned release on the target OS with its public Firebase configuration and a server-only Places key, run it on a temporary loopback port for smoke checks, and switch only the fishing app's process after review. Keep the previous build and process configuration for rollback. Private hostnames, process paths, credentials, and release results belong in local operations notes, outside the public repository.
 
 See [TESTING.md](TESTING.md), [ADR 0001](docs/ADR/0001-nextjs-app-router-architecture.md), [ADR 0002](docs/ADR/0002-firebase-auth-and-firestore-integration.md), and [ADR 0003](docs/ADR/0003-external-api-proxying-and-caching.md).
