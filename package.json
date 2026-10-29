@@ -8,22 +8,28 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:rules": "npx --yes firebase-tools@15.24.0 emulators:exec --config firebase.emulators.json --project demo-fishing-planner --only firestore \"node --test scripts/check-firestore-rules.mjs\""
   },
   "dependencies": {
-    "firebase": "^12.16.0",
+    "firebase": "12.19.0",
     "lucide-react": "^1.24.0",
-    "next": "16.2.10",
+    "next": "16.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "zod": "^4.4.3"
+    "zod": "4.6.6"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.7",
+    "brace-expansion@^1.1.7": "1.1.21"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.4.3",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1"
   }

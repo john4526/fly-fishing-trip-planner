@@ -4,7 +4,7 @@ A Next.js 16 / React 19 application for browsing fishing corridors, USGS gauge r
 
 ## Run locally
 
-Use Node.js 20.9 or later and npm with the committed lockfile:
+Use Node.js 24 LTS and npm with the committed lockfile:
 
 ```sh
 npm ci
@@ -19,6 +19,8 @@ npm test -- --runInBand
 npm run build
 npm start
 ```
+
+Firestore access rules have a separate regression suite. Install Java 21 and run `npm run test:rules`. This starts a loopback-only emulator with a `demo-` project, tests the committed rules, and shuts the emulator down. It does not require Firebase credentials or contact a production database. CI runs this suite as well as lint, Jest, and the build.
 
 ## Optional services
 
@@ -48,5 +50,9 @@ Without the four required Firebase values, accounts and favorites are disabled; 
 ## Development and review
 
 Work locally on `codex/` branches and open focused pull requests. Run lint, tests, and build before requesting review. Server deployment and Firebase rule deployment are separate operational steps.
+
+The private deployment uses Tailscale Serve HTTPS in front of a loopback-bound Next.js process. Clients must be connected to the tailnet. Firebase Auth and Firestore remain Google-hosted services protected by authentication and owner-only rules; their service endpoints are not inside Tailscale. Build each release with its intended Firebase web configuration, smoke-test it on a separate loopback port, then switch the app process while retaining the prior release for rollback.
+
+The dependency overrides pin patched `@grpc/grpc-js` and the legacy `brace-expansion` major while their parents still resolve vulnerable versions. Remove these overrides when upstream dependencies resolve patched versions without them; rerun both application and Firestore tests when changing them.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for data boundaries and [TESTING.md](TESTING.md) for regression conditions and manual checks. API tests run in Node; component tests use jsdom. Tests mock external services and do not require production credentials.
