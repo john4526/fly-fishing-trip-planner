@@ -40,13 +40,19 @@
     .leaflet-popup-tip {
       background: #1e293b !important;
     }
+    #map-status { position: absolute; z-index: 1000; top: 10px; left: 50px; right: 10px; padding: 10px; background: #fff; color: #17212c; font: 14px system-ui; border-radius: 6px; }
   </style>
 </head>
 <body>
+  <div id="map-status" role="status">Loading map…</div>
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script>
+  <script type="module">
+    import { textPopup, reportTileFailure } from "/maps/map-utils.js";
+    const status = document.getElementById("map-status");
+    const L = window.L;
+    if (!L) { status.textContent = "Map could not load. Choose a corridor from the list."; } else {
     const params = new URLSearchParams(window.location.search);
     const stateId = params.get('stateId') || 'ohio';
 
@@ -289,14 +295,15 @@
     }).setView(config.center, config.zoom);
 
     // Muted dark terrain mapping
-    const darkTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    reportTileFailure(L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-    }).addTo(map);
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }), status).addTo(map);
+    status.hidden = true;
 
     // 1. Load local states-counties GeoJSON and highlight regions (counties)
     fetch('/maps/states-counties.json')
-      .then(res => res.json())
+      .then(res => { if (!res.ok) throw new Error("County boundaries unavailable"); return res.json(); })
       .then(geoJson => {
         L.geoJSON(geoJson, {
           filter: (feature) => {
@@ -310,6 +317,9 @@
             fillOpacity: 1
           }
         }).addTo(map);
+
+      })
+      .catch(() => { status.hidden = false; status.textContent = 'County boundaries unavailable. River corridors remain selectable.'; });
 
         // 2. Render the specific River Corridors for this state
         Object.entries(CORRIDOR_GEOMETRIES).forEach(([id, geom]) => {
@@ -354,13 +364,7 @@
 
             // Bind interactions
             const title = geom.name.replace(' Corridor', '');
-            const popupContent = `
-              <div style="font-family: system-ui; padding: 0.25rem;">
-                <h4 style="margin: 0 0 0.25rem 0; color: #86efac; font-size: 0.95rem; font-weight: 700;">${title}</h4>
-                <div style="color: #cbd5e1; font-size: 0.8rem; margin-bottom: 0.5rem;">Protected Fishing Zone</div>
-                <div style="font-size: 0.75rem; color: #86efac; font-weight: 700; cursor: pointer;">Click to Select Corridor &rarr;</div>
-              </div>
-            `;
+            const popupContent = textPopup(title, ['Approximate fishing corridor', 'Select corridor to view conditions']);
 
             [corridorPoly, riverLine].forEach(layer => {
               layer.bindPopup(popupContent, { closeButton: false });
@@ -376,48 +380,12 @@
                 window.parent.postMessage({
                   type: 'select_river_corridor',
                   corridorId: id
-                }, '*');
+                }, window.location.origin);
               });
             });
           }
         });
-      })
-      .catch(err => console.error('Error loading county mapping boundaries:', err));
-
-    // Group for active access point and gauges
-    const activeMarkersGroup = L.layerGroup().addTo(map);
-
-    window.addEventListener('message', (event) => {
-      const data = event.data;
-      if (data.type === 'update_map') {
-        activeMarkersGroup.clearLayers();
-        
-        // Plot active access point
-        if (data.lat && data.lon) {
-          L.marker([data.lat, data.lon]).addTo(activeMarkersGroup)
-           .bindPopup(`<b>${data.name}</b><br>Access Point`).openPopup();
-          
-          // Pan map to access point
-          map.setView([data.lat, data.lon], 11);
-        }
-
-        // Plot USGS gauges
-        if (data.gauges && Array.isArray(data.gauges)) {
-          data.gauges.forEach(g => {
-            const circleColor = g.isActive ? '#ef4444' : '#3b82f6';
-            L.circleMarker([g.lat, g.lon], {
-              radius: 8,
-              fillColor: circleColor,
-              color: '#ffffff',
-              weight: 2,
-              opacity: 1,
-              fillOpacity: 0.8
-            }).addTo(activeMarkersGroup)
-              .bindPopup(`<b>${g.name}</b><br>USGS Gauge: ${g.id}`);
-          });
-        }
-      }
-    });
+    }
   </script>
 </body>
 </html>

@@ -57,9 +57,23 @@ This document catalogs all test conditions for the Fly Fishing Trip Planner. As 
 - **Navigation Flow**: Verify that the "Back to States" button on `/states/[stateId]` and the "Back to [State] Map" button on the corridor details sidebar return the user to the correct parent views.
 
 ## 11. Automated Vertical Slice Jest Suites
-All manual test conditions are backed by automated Jest integration tests in `src/__tests__/`:
+The following automated suites cover selected conditions; the remaining conditions require manual or additional automated verification:
 - **`src/__tests__/river-corridors.test.js`**: Validates 7-state configuration integrity, flow status thresholds (`Too Low`, `Optimal Flow`, `Too High / Unsafe`), and coordinate bounds.
-- **`src/__tests__/weather-api.test.js`**: Validates `/api/weather` query validation (400 response on missing coordinates) and OpenWeather data transformation.
-- **`src/__tests__/auth-favorites.test.js`**: Validates `AuthContext` state logic, admin email authorization checks, and favorites array toggling.
+- **`src/__tests__/weather-api.test.js`**: Validates `/api/weather` query validation (400 response on missing coordinates) and weather data transformation.
+- **`src/__tests__/auth-favorites.test.js`**: Validates `AuthContext` state logic, trusted admin claims, and favorites array toggling.
 
 
+
+## 12. Security and truthful review data
+- **Unavailable accounts:** With Firebase configuration absent or incomplete, account forms are not shown and sign-in/signup cannot create local demo accounts. Existing `mock_users` and `mock_user` storage is removed without reading passwords.
+- **Admin authorization:** An ordinary authenticated account, including an address formerly hard-coded as admin, receives no admin access. Only the trusted Firebase ID-token `admin: true` claim enables the admin UI; a changed token updates the role.
+- **Account races:** A favorites read completing after sign-out must not restore the old account or its favorites.
+- **Favorite persistence:** Successful writes update the current user's document; failed writes preserve the previous UI state and show a retryable error. Repeated clicks while saving do not produce overlapping writes.
+- **Firestore rules (deployment prerequisite):** In the Firebase emulator or a dedicated test project, verify unauthenticated and cross-user reads/writes fail, owners can update favorites, and owners cannot write role fields. The committed rules are not automatically deployed by a Next.js build.
+- **Map HTML:** URL names, access-point names, gauge names, and stocking text containing HTML must display literally and never create executable elements.
+- **Map messages:** Reject unknown origins, unexpected source windows, malformed coordinates, and navigation to corridors not in the current state.
+- **Map readiness:** On the first load and on tab changes, the selected access point, gauges, and stocking visibility synchronize after the iframe is ready.
+- **Map failure:** Block the basemap request and verify a readable unavailable message appears while the independent corridor list remains usable.
+- **Reviews without configuration:** Missing Places configuration shows an unavailable state with no made-up names, dates, ratings, or review counts. Unknown river IDs and arbitrary search requests are rejected before calling Google.
+
+Automated coverage for this phase: `auth-favorites.test.js` exercises the provider, `map-security.test.js` exercises iframe navigation and the access-map script, and `reviews-api.test.js` exercises the route. API tests run in Node; browser-component tests explicitly select jsdom. Firestore rules require separate emulator validation before deployment.

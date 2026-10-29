@@ -13,7 +13,8 @@ const firebaseConfig = {
   appId: env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const isFirebaseConfigured = !!firebaseConfig.apiKey;
+const isFirebaseConfigured = [firebaseConfig.apiKey, firebaseConfig.authDomain,
+  firebaseConfig.projectId, firebaseConfig.appId].every(value => typeof value === 'string' && value.trim());
 
 let app;
 let auth;

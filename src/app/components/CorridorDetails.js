@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
+import AccountPanel from "./AccountPanel";
+import AccessMap from "./AccessMap";
 import { useAuth } from "@/context/AuthContext";
 import styles from "./Dashboard.module.css";
 import { 
@@ -26,7 +28,7 @@ import {
 } from "lucide-react";
 
 export default function CorridorDetails({ corridor, stateId, stateName }) {
-  const { user, signup, login, logout, favorites, toggleFavorite } = useAuth();
+  const { user, authEnabled, favorites, favoritesReady, favoritePending, toggleFavorite } = useAuth();
   
   const [activeTab, setActiveTab] = useState("dashboard");
   const [activeAccessPoint, setActiveAccessPoint] = useState(corridor.accessPoints[0]);
@@ -35,7 +37,7 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
   const [showStocking, setShowStocking] = useState(false);
   const [stockingRecords, setStockingRecords] = useState([]);
 
-  const mapIframeRef = useRef(null);
+
 
 
   
@@ -55,61 +57,13 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsError, setReviewsError] = useState(null);
 
-  // Auth Card state
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authError, setAuthError] = useState("");
   const [showAuthWarning, setShowAuthWarning] = useState(false);
-
-  // Compute all available gauges
-  const allGauges = [];
-  if (riverData) {
-    allGauges.push({ ...riverData, name: `${corridor.name} (Primary)`, isPrimary: true });
-  }
-  if (additionalRiverData.length > 0) {
-    allGauges.push(...additionalRiverData);
-  }
-
-  // Current active gauge data
+  const [favoriteError, setFavoriteError] = useState('');
+  const allGauges = useMemo(() => [
+    ...(riverData ? [{ ...riverData, name: `${corridor.name} (Primary)`, isPrimary: true }] : []),
+    ...additionalRiverData,
+  ], [riverData, additionalRiverData, corridor.name]);
   const activeGaugeData = allGauges.find(g => g.siteId === activeGaugeId) || riverData;
-
-  // Send update message to Leaflet iframe when active spot or map mode changes
-  useEffect(() => {
-    if (mapIframeRef.current && activeAccessPoint) {
-      const timer = setTimeout(() => {
-        mapIframeRef.current?.contentWindow?.postMessage({
-          type: "update_map",
-          lat: activeAccessPoint.latitude,
-          lon: activeAccessPoint.longitude,
-          mode: mapMode,
-          name: activeAccessPoint.name,
-          gauges: allGauges.filter(g => g.latitude && g.longitude).map(g => ({
-            id: g.siteId,
-            name: g.name,
-            lat: g.latitude,
-            lon: g.longitude,
-            isActive: g.siteId === activeGaugeId
-          }))
-        }, "*");
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [activeAccessPoint, mapMode, activeTab, activeGaugeId, allGauges.length]);
-
-  // Sync fish stocking layer with map iframe
-  useEffect(() => {
-    if (mapIframeRef.current) {
-      const timer = setTimeout(() => {
-        mapIframeRef.current?.contentWindow?.postMessage({
-          type: "update_stocking",
-          records: stockingRecords,
-          visible: showStocking
-        }, "*");
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [stockingRecords, showStocking, activeTab]);
 
   // Helper: Wind degree to direction
   const getWindDirection = (deg) => {
@@ -211,32 +165,6 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
     }
   }, [corridor, fetchRiverData, fetchWeatherData, fetchReviewsData, fetchStockingData]);
 
-  // Auth handlers
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setAuthError("");
-    try {
-      if (isSignUp) {
-        await signup(authEmail, authPassword);
-      } else {
-        await login(authEmail, authPassword);
-      }
-      setAuthEmail("");
-      setAuthPassword("");
-      setShowAuthWarning(false);
-    } catch (err) {
-      if (err.message.includes("email-already-in-use")) {
-        setAuthError("Email is already registered.");
-      } else if (err.message.includes("invalid-credential") || err.message.includes("wrong-password") || err.message.includes("user-not-found")) {
-        setAuthError("Invalid email or password.");
-      } else if (err.message.includes("weak-password")) {
-        setAuthError("Password must be at least 6 characters.");
-      } else {
-        setAuthError("An error occurred during authentication.");
-      }
-    }
-  };
-
   // Determine flow safety status
   const getFlowStatus = (flow, range) => {
     if (flow === null || flow === undefined) return { label: "Unknown", class: "", percent: 0 };
@@ -265,12 +193,13 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
   const flowStatus = activeGaugeData ? getFlowStatus(activeGaugeData.flow, corridor.flowRange) : null;
   const isFavorite = favorites.includes(corridor.id);
 
-  const handleFavoriteClick = () => {
+  const handleFavoriteClick = async () => {
+    setFavoriteError('');
     if (!user) {
       setShowAuthWarning(true);
       return;
     }
-    toggleFavorite(corridor.id);
+    try { await toggleFavorite(corridor.id); } catch { setFavoriteError('Could not save your favorite. Please try again.'); }
   };
 
   return (
@@ -308,64 +237,7 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
 
         {/* User Account Section */}
         <div className={styles.authSection} style={{ border: "none", padding: 0, minWidth: "220px" }}>
-          {user ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div className={styles.userInfo}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem", maxWidth: "150px" }}>
-                  <span className={styles.userEmail} title={user.email}>{user.email}</span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: "500" }}>Logged In</span>
-                </div>
-                <button onClick={logout} className={styles.btnText} style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  <LogOut size={14} />
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className={styles.authContainer}>
-              <h3 style={{ fontSize: "0.85rem", fontWeight: "700", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--text-main)" }}>
-                <User size={14} />
-                {isSignUp ? "Create Account" : "Sign In to Save Spots"}
-              </h3>
-              <form onSubmit={handleAuthSubmit} className={styles.authForm} style={{ flexDirection: "row", flexWrap: "wrap", width: "300px" }}>
-                <div style={{ position: "relative", flex: "1", minWidth: "140px" }}>
-                  <input 
-                    type="email" 
-                    placeholder="Email" 
-                    value={authEmail} 
-                    onChange={(e) => setAuthEmail(e.target.value)} 
-                    required 
-                    style={{ width: "100%", paddingLeft: "1.75rem" }}
-                  />
-                  <Mail size={12} style={{ position: "absolute", left: "0.5rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                </div>
-                <div style={{ position: "relative", flex: "1", minWidth: "140px" }}>
-                  <input 
-                    type="password" 
-                    placeholder="Password" 
-                    value={authPassword} 
-                    onChange={(e) => setAuthPassword(e.target.value)} 
-                    required 
-                    style={{ width: "100%", paddingLeft: "1.75rem" }}
-                  />
-                  <Lock size={12} style={{ position: "absolute", left: "0.5rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
-                </div>
-                <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.25rem" }}>
-                  <div className={styles.authToggleText}>
-                    {isSignUp ? (
-                      <span>Have an account? <span onClick={() => { setIsSignUp(false); setAuthError(""); }}>Log In</span></span>
-                    ) : (
-                      <span>New? <span onClick={() => { setIsSignUp(true); setAuthError(""); }}>Sign Up</span></span>
-                    )}
-                  </div>
-                  <button type="submit" className={styles.authSubmitBtn} style={{ padding: "0.35rem 1rem" }}>
-                    {isSignUp ? "Sign Up" : "Log In"}
-                  </button>
-                </div>
-                {authError && <span className={styles.authError} style={{ width: "100%", marginTop: "0.25rem" }}>{authError}</span>}
-              </form>
-            </div>
-          )}
+          <AccountPanel />
         </div>
       </nav>
 
@@ -389,12 +261,15 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.5rem" }}>
             <button 
+              disabled={!authEnabled || favoritePending || (user && !favoritesReady)}
+              aria-label={isFavorite ? "Remove from Favorites" : "Save to Favorites"}
               onClick={handleFavoriteClick} 
               className={`${styles.saveBtn} ${isFavorite ? styles.saveBtnActive : ""}`}
               title={isFavorite ? "Remove from Favorites" : "Save to Favorites"}
             >
               <Star size={20} fill={isFavorite ? "#fbbf24" : "none"} />
             </button>
+            {favoriteError && <span role="alert" className={styles.authError}>{favoriteError}</span>}
             {showAuthWarning && (
               <span className={styles.authError} style={{ fontSize: "0.75rem", width: "160px", textAlign: "right" }}>
                 Please sign in to save your favorite spots.
@@ -717,7 +592,7 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
             <div className={`${styles.card} glass`}>
               <h2 className={styles.cardTitle}>
                 <Star size={18} style={{ color: "var(--color-primary)" }} />
-                Angler Reports & Reviews
+                Google Place Reviews
               </h2>
 
               {reviewsLoading ? (
@@ -748,7 +623,7 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
                             />
                           ))}
                         </div>
-                        <span className={styles.ratingCount}>Based on {reviewsData.userRatingCount} Local Guides</span>
+                        <span className={styles.ratingCount}>Based on {reviewsData.userRatingCount} Google reviews</span>
                       </div>
                     </div>
                   )}
@@ -771,12 +646,12 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
                               />
                             ))}
                           </div>
-                          <p className={styles.reviewText}>"{review.text}"</p>
+                          <p className={styles.reviewText}>&ldquo;{review.text}&rdquo;</p>
                         </div>
                       ))
                     ) : (
                       <span style={{ fontStyle: "italic", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                        No recent reviews found for this access spot. Be the first to add one!
+                        {reviewsData.message || "No Google reviews found for this location."}
                       </span>
                     )}
                   </div>
@@ -916,16 +791,8 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
               </div>
               {activeAccessPoint ? (
                 <div style={{ width: "100%", height: "100%", minHeight: "450px", position: "relative", borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-card)" }}>
-                  <iframe
-                    ref={mapIframeRef}
-                    title={`${activeAccessPoint.name} Map`}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0, minHeight: "450px" }}
-                    loading="lazy"
-                    allowFullScreen
-                    src={`/map.html?lat=${activeAccessPoint.latitude}&lon=${activeAccessPoint.longitude}&mode=${mapMode}&name=${encodeURIComponent(activeAccessPoint.name)}&v=20260719_1`}
-                  ></iframe>
+                  <AccessMap point={activeAccessPoint} mode={mapMode} gauges={allGauges}
+                    gaugeId={activeGaugeId} records={stockingRecords} showStocking={showStocking} />
                 </div>
               ) : (
                 <div className={styles.loadingContainer}>

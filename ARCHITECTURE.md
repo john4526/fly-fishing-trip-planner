@@ -24,6 +24,7 @@ graph TD
         Auth[Auth Context]:::client
         Map[Leaflet Map Iframe]:::client
         Admin[Kanban Admin Board]:::client
+        LocalTasks[(Browser task storage)]:::client
     end
 
     subgraph "Next.js Backend (API Routes)"
@@ -46,7 +47,7 @@ graph TD
 
     subgraph "External APIs"
         USGS[USGS Water Services API]:::external
-        OpenWeather[OpenWeatherMap API]:::external
+        OpenWeather[Open-Meteo / NWS]:::external
         GooglePlaces[Google Places API]:::external
     end
 
@@ -68,7 +69,7 @@ graph TD
     %% Auth & DB
     Auth <--> FirebaseAuth
     CorridorDetails <-->|Saves Favorites| Firestore
-    Admin <-->|Reads/Writes Tasks| Firestore
+    Admin <-->|Reads/Writes Tasks| LocalTasks
 
     %% Backend to External APIs
     WeatherAPI -->|Fetches Forecast| OpenWeather
@@ -78,7 +79,7 @@ graph TD
 
     %% Context Flow
     Auth -.->|Provides User State| CorridorDetails
-    Auth -.->|Secures| Admin
+    Auth -.->|Trusted admin token claim| Admin
 ```
 
 ## Component Details
@@ -88,14 +89,14 @@ graph TD
 - **State Overview (`src/app/states/[stateId]/page.js`)**: Displays the interactive SVG map (`StateVectorMap.js`) and the state's river corridors list.
 - **Corridor Dashboard (`src/app/states/[stateId]/corridors/[corridorId]/page.js`)**: Renders details for a single corridor (`CorridorDetails.js`), aggregating river gauges, weather, local reports, and access maps.
 - **Context API (`AuthContext`)**: Handles authentication state using Firebase Auth and syncs favorite rivers to Firestore.
-- **Admin Kanban**: A private route accessible only to users with the `isAdmin` flag in Firestore, allowing task tracking.
+- **Admin Kanban**: A private route shown only to users with the trusted Firebase ID-token `admin` claim, allowing task tracking stored in the browser, not Firestore.
 - **Maps**: Embeds a Leaflet map via an iframe or native React wrapper, communicating via `postMessage`.
 
 ### 2. Backend (Next.js Route Handlers)
 To avoid CORS issues and secure API keys, all external data fetches happen server-side:
-- `/api/river`: Proxies requests to the **USGS Water Services API** for streamflow (cfs) and gage height.
-- `/api/weather`: Proxies requests to **OpenWeatherMap** (or returns mock data if keys are missing).
-- `/api/reviews`: Proxies requests to **Google Places API** for star ratings and reviews.
+- `/api/river`: Proxies requests to the **USGS Water Data OGC API** for streamflow (cfs) and gage height.
+- `/api/weather`: Uses **Open-Meteo** with an **NWS** fallback.
+- `/api/reviews`: Looks up configured river IDs with **Google Places API**. Missing credentials return an explicit unavailable state; fabricated reviews are never returned.
 - `/api/stocking`: Parses the local `stocking_history.csv` to return ODNR fish stocking history.
 
 ### 3. Config & State Management
@@ -118,3 +119,11 @@ Architectural decision records and proposed architectural changes are stored in 
 ### Code Cleanup Log
 - **Removed Legacy `Dashboard.js`**: Deleted 51 KB legacy monolithic dashboard component to eliminate architectural bloat after state-based App Router refactoring.
 
+
+## Security boundaries
+
+- Firebase requires the API key, auth domain, project ID, and app ID. Without configuration the site remains browseable and account operations are disabled. There is no local-password or demo-account fallback.
+- `AuthContext` observes ID-token changes. A trusted `admin: true` custom claim controls the admin UI; email addresses and client-written profile fields do not grant roles. Admin Kanban tasks currently stay in browser localStorage and are not a server-side administrative API.
+- Favorites are stored under `users/{uid}`. `firestore.rules` restricts reads to the owner and limits client writes to the favorites field. These rules must be validated and explicitly deployed to the intended Firebase project before production account use; Next.js deployment does not deploy Firebase rules.
+- Leaflet popups use DOM text nodes. Map messages validate origin, source window, type, and coordinates; navigation additionally validates corridor membership. Access-map initialization uses a readiness handshake instead of timing assumptions.
+- State maps use standard OpenStreetMap browser tiles with visible attribution and ordinary browser caching. No offline prefetching is implemented. See the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/).

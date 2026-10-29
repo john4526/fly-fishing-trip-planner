@@ -33,7 +33,7 @@ export default async function StatePage({ params }) {
           <h2 style={styles.cardTitle}>Interactive Corridor Map</h2>
           <p style={styles.cardSubtitle}>Hover over highlighted river paths to see details. Click a river to open the dashboard.</p>
           <div style={styles.mapContainer}>
-            <StateVectorMap stateId={stateId} />
+            <StateVectorMap stateId={stateId} corridorIds={state.corridors.map(corridor => corridor.id)} />
           </div>
         </div>
 

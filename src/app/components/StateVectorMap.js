@@ -1,24 +1,27 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { trustedMessage } from "../../../public/maps/map-utils";
 import { useRouter } from "next/navigation";
 
-export default function StateVectorMap({ stateId }) {
+export default function StateVectorMap({ stateId, corridorIds }) {
   const router = useRouter();
+  const frame = useRef(null);
 
   useEffect(() => {
     const handleMessage = (e) => {
-      if (e.data && e.data.type === "select_river_corridor") {
+      if (trustedMessage(e, frame.current?.contentWindow, window.location.origin, ["select_river_corridor"]) &&
+          corridorIds.includes(e.data.corridorId)) {
         router.push(`/states/${stateId}/corridors/${e.data.corridorId}`);
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [stateId, router]);
+  }, [stateId, router, corridorIds]);
 
   return (
     <div style={styles.iframeWrapper}>
-      <iframe
+      <iframe ref={frame}
         src={`/state_map.html?stateId=${stateId}`}
         title={`${stateId} Geographic Map`}
         style={styles.iframe}
