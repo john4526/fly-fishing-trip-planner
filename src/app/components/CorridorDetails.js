@@ -9,7 +9,8 @@ import styles from "./Dashboard.module.css";
 import { Waves, Star, MapPin, Compass, RefreshCw, Info, ChevronLeft, Fish } from "lucide-react";
 import WeatherPanel from "./WeatherPanel";
 import useResource from "@/hooks/useResource";
-import { classifyFlow, isStale } from "@/lib/river";
+import RiverPanel from "./RiverPanel";
+import { GAUGE_NAMES } from "@/config/gauges";
 
 export default function CorridorDetails({ corridor, stateId, stateName }) {
   const { user, authEnabled, favorites, favoritesReady, favoritePending, toggleFavorite } = useAuth();
@@ -19,14 +20,12 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
   const [activeGaugeId, setActiveGaugeId] = useState(corridor.gaugeId);
   const [mapMode, setMapMode] = useState("satellite"); // 'satellite' or 'terrain'
   const [showStocking, setShowStocking] = useState(false);
-  const river = useResource(corridor.gaugeHistorical ? null : `/api/river?siteId=${corridor.gaugeId}`, 300000);
-  const extra = useResource((corridor.additionalGauges || []).map(g => `/api/river?siteId=${g.id}`), 300000);
+  const river = useResource(!corridor.gaugeId || corridor.gaugeHistorical ? null : `/api/river?siteId=${corridor.gaugeId}`, 300000);
+  const extra = useResource(corridor.additionalGauges?.length ? corridor.additionalGauges.map(g => `/api/river?siteId=${g.id}`) : null, 300000);
   const weather = useResource(`/api/weather?lat=${corridor.latitude}&lon=${corridor.longitude}`, 900000);
   const reviews = useResource(`/api/reviews?riverId=${corridor.id}`);
   const stocking = useResource(`/api/stocking?riverId=${corridor.id}`);
   const riverData = river.data;
-  const riverLoading = river.loading;
-  const riverError = river.error;
   const reviewsData = reviews.data;
   const reviewsLoading = reviews.loading;
   const reviewsError = reviews.error;
@@ -34,19 +33,12 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
   const [showAuthWarning, setShowAuthWarning] = useState(false);
   const [favoriteError, setFavoriteError] = useState('');
   const allGauges = useMemo(() => [
-    ...(riverData ? [{ ...riverData, name: corridor.gaugeName || `${corridor.name} (Primary)`, isPrimary: true, flowRange: corridor.flowRange }] : []),
+    ...(riverData ? [{ ...riverData, name: GAUGE_NAMES[corridor.gaugeId] || corridor.gaugeName || corridor.name, isPrimary: true, flowRange: corridor.flowRange }] : []),
     ...(extra.data || []).filter(Boolean).map(g => {
       const config = corridor.additionalGauges.find(item => item.id === g.siteId);
-      return { ...g, name: config.name, flowRange: config.flowRange };
+      return { ...g, name: GAUGE_NAMES[g.siteId] || config.name, flowRange: config.flowRange };
     }),
   ], [riverData, extra.data, corridor]);
-  const activeGaugeData = allGauges.find(g => g.siteId === activeGaugeId);
-  const readingStale = activeGaugeData && isStale(activeGaugeData.flowTimestamp);
-  const flowStatus = activeGaugeData ? classifyFlow(activeGaugeData.flow, activeGaugeData.flowRange) : null;
-  const badgeClass = { optimal: styles.badgeOptimal, marginal: styles.badgeMarginal, unsafe: styles.badgeUnsafe };
-  const fetchRiverData = river.retry;
-  const fetchAdditionalRiverData = extra.retry;
-
   const isFavorite = favorites.includes(corridor.id);
 
   const handleFavoriteClick = async () => {
@@ -154,115 +146,8 @@ export default function CorridorDetails({ corridor, stateId, stateName }) {
         {activeTab === "dashboard" && (
           <div className={styles.dashboardGrid}>
             
-            {/* USGS River Flow Card */}
-            <div className={`${styles.card} glass`}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
-                <h2 className={styles.cardTitle} style={{ marginBottom: 0 }}>
-                  <Waves size={18} style={{ color: "var(--color-primary)" }} />
-                  USGS River Gage
-                </h2>
-                {allGauges.length > 1 && (
-                  <select aria-label="River gauge"
-                    value={activeGaugeId} 
-                    onChange={(e) => setActiveGaugeId(e.target.value)}
-                    style={{
-                      background: "var(--bg-card)",
-                      border: "1px solid var(--border-color)",
-                      color: "var(--text-primary)",
-                      padding: "0.4rem 0.8rem",
-                      borderRadius: "6px",
-                      fontSize: "0.85rem",
-                      outline: "none",
-                      cursor: "pointer"
-                    }}
-                  >
-                    {allGauges.map(g => (
-                      <option key={g.siteId} value={g.siteId} style={{ color: "#000" }}>
-                        {g.name} ({g.siteId})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              
-              {corridor.gaugeNote && <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>{corridor.gaugeNote} <a href={`https://waterdata.usgs.gov/monitoring-location/USGS-${corridor.gaugeId}`} target="_blank" rel="noopener noreferrer" style={{ color: '#14566a', textDecoration: 'underline' }}>USGS {corridor.gaugeId}</a> · Checked 2026-10-29</p>}
-              {riverLoading ? (
-                <div className={styles.loadingContainer}>
-                  <div className={styles.spinner}></div>
-                </div>
-              ) : riverError && !riverData ? (
-                <div className={styles.loadingContainer} style={{ flexDirection: "column", gap: "0.5rem" }}>
-                  <Info size={24} style={{ color: "var(--color-unsafe)" }} />
-                  <span style={{ fontSize: "0.9rem" }}>Error loading gage: {riverError}</span>
-                  <button onClick={() => { fetchRiverData(); fetchAdditionalRiverData(); }} className={styles.btnText} style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.5rem" }}>
-                    <RefreshCw size={12} /> Retry
-                  </button>
-                </div>
-              ) : activeGaugeData ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-                  <div className={styles.flowStats}>
-                    <span className={styles.flowValue}>
-                      {activeGaugeData.flow !== null ? activeGaugeData.flow : "N/A"}
-                    </span>
-                    <span className={styles.flowLabel}>
-                      Streamflow ({activeGaugeData.flowUnit})
-                    </span>
-                    {flowStatus && (
-                      <span className={`${styles.flowBadge} ${readingStale ? styles.badgeMarginal : badgeClass[flowStatus.tone] || ""}`}>
-                        {activeGaugeData.flow === null ? "Flow unavailable" : readingStale ? "Stale flow reading" : flowStatus.label}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Progress bar visual range indicator */}
-                  {flowStatus?.percent !== undefined && !readingStale && (
-                    <div className={styles.progressBarContainer}>
-                      <div className={styles.progressBarTrack}>
-                        <div 
-                          className={styles.optimalZoneIndicator}
-                          style={{
-                            left: `${flowStatus.zoneStart}%`,
-                            right: `${100 - flowStatus.zoneEnd}%`
-                          }}
-                        ></div>
-                        <div 
-                          className={styles.progressBarFill}
-                          style={{
-                            width: `${flowStatus.percent}%`,
-                            backgroundColor: `var(--color-${flowStatus.tone})`
-                          }}
-                        ></div>
-                      </div>
-                      <div className={styles.progressLabelContainer}>
-                        <span>Low Flow</span>
-                        <span style={{ fontWeight: "700", color: "var(--color-optimal)" }}>
-                          Reference ({activeGaugeData.flowRange.min} – {activeGaugeData.flowRange.max} cfs)
-                        </span>
-                        <span>High Flow</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className={styles.flowGageMeta}>
-                    <div className={styles.metaItem}>
-                      <span className={styles.metaVal}>
-                        {activeGaugeData.height !== null ? `${activeGaugeData.height} ${activeGaugeData.heightUnit}` : "N/A"}
-                      </span>
-                      <span className={styles.metaLabel}>Gage Height{activeGaugeData.heightTimestamp && ` · ${new Date(activeGaugeData.heightTimestamp).toLocaleString()}`}</span>
-                    </div>
-                    <div className={styles.metaItem}>
-                      <span className={styles.metaVal}>
-                        {activeGaugeData.flowTimestamp ? new Date(activeGaugeData.flowTimestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }) : "Unavailable"}
-                      </span>
-                      <span className={styles.metaLabel}>Flow measured · your timezone</span>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              {riverError && riverData && <p role="alert">Refresh failed; showing the last reading. <button onClick={river.retry} className={styles.btnText}>Retry</button></p>}
-              {extra.error && <p role="alert">Some additional gauges could not be refreshed. <button onClick={extra.retry} className={styles.btnText}>Retry additional gauges</button></p>}
-              <p className={styles.weatherTimestamp}>Reference ranges are planning guidance, not a determination of safe wading. {activeGaugeData?.flowApproval && `USGS: ${activeGaugeData.flowApproval}.`} {activeGaugeData?.flowQualifier?.length > 0 && `Qualifiers: ${activeGaugeData.flowQualifier.join(', ')}.`}</p>
-            </div>
+            <RiverPanel corridor={corridor} river={river} extra={extra} gauges={allGauges}
+              activeGaugeId={activeGaugeId} onGaugeChange={setActiveGaugeId} />
 
             <WeatherPanel {...weather} />
 

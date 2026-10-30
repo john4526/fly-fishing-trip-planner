@@ -44,7 +44,7 @@ Without the four required Firebase values, accounts and favorites are disabled; 
 
 ## Data and maps
 
-- USGS flow and height are selected independently by measurement time; stale flow readings are labeled after one hour. Browser refresh: five minutes.
+- USGS flow and height show their own measurement age, full date/year, and a separate check time. Over one hour is delayed; at 24 hours the last value is shown as historical context. River requests await USGS without an app cache. Refresh manually, every five minutes, or when returning to the tab; a station may still transmit late. See the [gauge audit and corrected station assignments](docs/data/gauge-freshness.md).
 - Open-Meteo supplies modeled current conditions and forecasts. NWS hourly forecasts are the fallback. Missing measurements stay unavailable. Forecast timestamps use the destination timezone, including DST; the five-day outlook summarizes available hourly data, so today can be partial. Browser refresh: fifteen minutes.
 - Stocking records come from the bundled CSV, not a live agency feed.
 - Leaflet maps use OpenStreetMap state tiles and Esri/USGS access-map layers. They require network access. Map geometry is approximate; the corridor list remains usable if map tiles fail.

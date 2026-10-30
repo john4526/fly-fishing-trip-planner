@@ -22,12 +22,13 @@ flowchart TD
     Planner <--> Device[Guest plan in localStorage]
     Planner <--> Rules
     Rules <--> Plans[users/uid/plans/outings]
-    Corridor --> Resource[Abortable requests and timed refresh]
+    Corridor --> Resource[Abortable polling, manual refresh and tab return]
     Resource --> River[/api/river]
     Resource --> Weather[/api/weather]
     Resource --> Reviews[/api/reviews]
     Resource --> Stocking[/api/stocking]
-    River --> USGS[USGS latest continuous observations]
+    River -->|Await uncached request| USGS[USGS v1 latest continuous observations]
+    Resource --> Freshness[RiverPanel ages flow and height separately]
     Weather --> OM[Open-Meteo primary]
     Weather --> NWS[NWS hourly fallback]
     Reviews --> Google[Google Places]
@@ -48,8 +49,8 @@ flowchart TD
 
 - `/` lists states. `/states/[stateId]` shows a Leaflet geographic map and corridor links; the columns stack on narrow screens. Unknown state and corridor IDs return not found.
 - `/states/[stateId]/corridors/[corridorId]` renders `CorridorDetails`, keyed by corridor ID so navigation resets selections. `WeatherPanel` handles optional measurements and destination-local dates.
-- `useResource` aborts requests on navigation/unmount and ignores late responses. Recursive timers refresh river data every five minutes and weather every fifteen minutes, with no overlapping polls. A failed refresh preserves the last response and displays an error. Reviews and stocking load once per corridor with retry.
-- `src/lib/river.js` owns observation selection, staleness, and reference-range comparison. Additional gauges only receive a comparison badge if they have their own configured range. A reference range is not a safety determination.
+- `useResource` aborts requests on navigation/unmount and ignores late responses. Recursive timers refresh river data every five minutes and weather every fifteen minutes, with no overlapping polls. Returning to a visible tab or focusing the window refreshes polling resources; the river panel also provides a manual refresh. A failed refresh preserves the last response, its original measurement/check times, and displays an error. Reviews and stocking load once per corridor with retry.
+- `src/lib/river.js` owns observation selection, measurement age, and reference-range comparison. `RiverPanel` updates age labels every 30 seconds even without a network response. Official station names come from the reviewed `gauges.js` snapshot; historical-only or unconfigured primary gauges are not polled. Additional gauges only receive a comparison badge if they have their own configured range. A reference range is not a safety determination.
 - `AuthContext` uses Firebase Auth and atomic Firestore favorite updates. It only changes local favorites after the write succeeds, and discards reads belonging to an old session.
 - Admin Kanban changes task status and checklist completion in localStorage. It has no backend administrative API, task creation/deletion UI, or cross-device synchronization. Invalid saved data is reported without overwriting it on load.
 
@@ -69,12 +70,12 @@ The fixed `plans/outings` rules permit owner CRUD with a bounded shape, exactly 
 
 | Route | Source | Cache / timeout | Behavior |
 | --- | --- | --- | --- |
-| `/api/river?siteId=…` | USGS OGC `latest-continuous` | 5 minutes / 8 seconds | Numeric 8–15 digit IDs; latest flow and height selected separately by timestamp. Missing values, no-data markers and unsupported units remain unavailable. Returns both measurement times. |
+| `/api/river?siteId=…` | USGS OGC v1 `latest-continuous` | No Next.js or response cache / 8 seconds | Numeric 8–15 digit IDs; latest flow and height selected separately by timestamp. Missing values, no-data markers and unsupported units remain unavailable. Filters requests to flow/height and returns both measurement times plus the separate successful upstream check time (`checkedAt`). |
 | `/api/weather?lat=…&lon=…` | Open-Meteo, then NWS points and hourly forecast | 15 minutes; NWS points 24 hours / 8 seconds per request | Bounded coordinates, imperial units, epoch timestamps, IANA timezone. Five-day outlook derived from available hourly data, plus a 3-hour series over 120 hours. Missing fields stay null; precipitation probability is distinct from amount. Both providers failing returns 503. |
 | `/api/reviews?riverId=…` | Google Places | 24 hours / 8 seconds | Only configured corridors may be searched. The Places key stays server-side. Missing configuration produces an explicit unavailable response with no fabricated reviews. |
 | `/api/stocking?riverId=…` | Local CSV | Bundled file | Returns recorded history, not a live stocking feed. Absence of a record implies nothing about wild populations. |
 
-Flow older than one hour is labeled stale; a newer temperature or height reading cannot make it appear fresh. The UI displays each measurement time. Open-Meteo current conditions are model data; NWS fallback values are hourly forecasts. Pressure tendency is only computed when current and earlier pressure values exist. NWS gaps are not inferred from forecast descriptions. All forecast and sun times use the destination timezone, including daylight saving changes.
+Each flow/height measurement over one hour old is labeled delayed; at 24 hours it is shown as no recent reading with its last value in secondary text. Missing/invalid timestamps cannot imply freshness. Dates always include the year and browser timezone, and successful check time is displayed separately. Only recent flow with a configured range receives a comparison. A new height observation cannot freshen an old flow value. The uncached river route avoids Next.js stale-while-revalidate responses; upstream telemetry/CDN delays can still occur. Five-minute client polling bounds normal traffic, but requests from different clients are not coalesced. See the [gauge audit](docs/data/gauge-freshness.md) for station corrections and known gaps. Open-Meteo current conditions are model data; NWS fallback values are hourly forecasts. Pressure tendency is only computed when current and earlier pressure values exist. NWS gaps are not inferred from forecast descriptions. All forecast and sun times use the destination timezone, including daylight saving changes.
 
 ## Security and configuration
 

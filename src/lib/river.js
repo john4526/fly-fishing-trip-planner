@@ -5,6 +5,23 @@ export function isStale(timestamp, now = Date.now()) {
   return !Number.isFinite(time) || now - time > STALE_AFTER_MS || time > now + 5 * 60 * 1000;
 }
 
+export function readingAge(timestamp, now = Date.now()) {
+  const measured = Date.parse(timestamp);
+  if (!Number.isFinite(measured)) return { state: 'unknown', label: 'Time unavailable' };
+  if (measured > now + 5 * 60 * 1000) return { state: 'invalid', label: 'Timestamp is in the future' };
+  const minutes = Math.max(0, Math.floor((now - measured) / 60000));
+  const age = minutes < 1 ? 'Less than a minute ago' : minutes < 60 ? `${minutes} min ago`
+    : minutes < 1440 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`
+      : minutes < 525600 ? `${Math.floor(minutes / 1440)} days ago` : `${Math.floor(minutes / 525600)} years ago`;
+  return { state: now - measured >= 86400000 ? 'old' : isStale(timestamp, now) ? 'delayed' : 'recent', label: age };
+}
+
+export function measurementTime(timestamp) {
+  const measured = Date.parse(timestamp);
+  if (!Number.isFinite(measured)) return 'Unavailable';
+  return new Date(measured).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+}
+
 export function classifyFlow(flow, range) {
   if (!Number.isFinite(flow)) return { label: 'Flow unavailable', tone: 'unknown' };
   if (!range || !Number.isFinite(range.min) || !Number.isFinite(range.max) || range.max <= range.min) {
