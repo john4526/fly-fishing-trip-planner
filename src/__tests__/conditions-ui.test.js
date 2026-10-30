@@ -56,3 +56,34 @@ it('keeps successful additional gauges available when another gauge fails', asyn
   expect(result.current.data).toEqual([{ siteId: 'one', flow: 100 }, null]);
   expect(result.current.error).toContain('Some additional gauges');
 });
+
+it('refreshes on return, exposes pending retries, and retains original check times on failure', async () => {
+  const reading = { flow: 100, checkedAt: '2026-10-29T12:05:00Z', flowTimestamp: '2026-10-29T12:00:00Z' };
+  let rejectRefresh;
+  global.fetch = jest.fn().mockResolvedValueOnce(response(reading))
+    .mockImplementationOnce(() => new Promise((resolve, reject) => { rejectRefresh = reject; }))
+    .mockResolvedValue(response({ ...reading, flow: 200 }));
+  const { result, unmount } = renderHook(() => useResource('/gauge', 300000));
+  await waitFor(() => expect(result.current.refreshing).toBe(false));
+  act(() => { window.dispatchEvent(new Event('focus')); });
+  expect(result.current.refreshing).toBe(true);
+  expect(result.current.data).toEqual(reading);
+  await act(async () => { rejectRefresh(new Error('offline')); });
+  expect(result.current.refreshing).toBe(false);
+  expect(result.current.data).toEqual(reading);
+  expect(result.current.error).toBe('offline');
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+  expect(result.current.data.flow).toBe(200);
+  unmount();
+  act(() => { window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange')); });
+  expect(global.fetch).toHaveBeenCalledTimes(3);
+});
+
+it('does not request disabled historical gauges on focus or poll', async () => {
+  jest.useFakeTimers();
+  global.fetch = jest.fn();
+  const { result } = renderHook(() => useResource(null, 300000));
+  await act(async () => { window.dispatchEvent(new Event('focus')); jest.advanceTimersByTime(600000); result.current.retry(); });
+  expect(global.fetch).not.toHaveBeenCalled();
+  expect(result.current.refreshing).toBe(false);
+});

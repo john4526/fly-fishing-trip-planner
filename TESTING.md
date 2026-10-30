@@ -17,8 +17,8 @@ This document catalogs all test conditions for the Fly Fishing Trip Planner. As 
 ## 3. USGS Live Streamflow
 - **Data Fetching**: Verify that streamflow data correctly fetches from the USGS gauge API for the active river.
 - **Progress Bar**: Verify the visual progress bar accurately places the current flow relative to the reference min/max limits.
-- **Flow Badges**: Verify below/within/above reference-range badges. Stale flow readings override range colors, and secondary gauges without a range are not classified.
-- **Error Handling**: Verify that if the USGS API fails, an error message with a "Retry" button appears.
+- **Flow comparisons**: Verify below/within/above reference-range text for recent flow. Delayed flow has no comparison, and secondary gauges without their own range are not classified.
+- **Error Handling**: Verify that if the USGS API fails, an error message and the "Refresh readings" button remain available.
 
 ## 4. Weather Forecast
 - **Current Conditions**: Verify that current temperature, description, wind speed/direction, and humidity load correctly for the river's coordinates.
@@ -125,3 +125,13 @@ Release checks requiring the deployed environment:
 - **Release prerequisite:** Deploy reviewed rules to the explicit Firebase project before shipping account plan saves. Application rollback does not remove saved plans. Verify a real signed-in save/load after deployment; emulator tests alone do not prove production rule activation.
 
 Automated coverage: `outing-plan.test.js`, `plan-storage.test.js`, `trip-planner.test.js`, and added plan cases in `scripts/check-firestore-rules.mjs`. Actual small-screen layout and live account synchronization require the manual checks above.
+
+## 16. Gauge freshness and station identity
+- **No stale app cache:** Consecutive river requests receive the latest respective mocked responses. Upstream URL uses OGC v1 with flow/height filters, `cache: no-store`, and an eight-second timeout; the route returns `Cache-Control: no-store`. `checkedAt` is a successful request time, never a substitute for measurement time. Errors return 502 without fabricated data.
+- **Independent age:** Exactly one hour remains recent; over one hour is delayed; 24 hours or more is old. Invalid/missing or more than five minutes future times cannot imply current conditions. A fresh height does not freshen historical flow, and delayed height does not hide a recent flow. Zero remains a measurement.
+- **Historical display:** Clear Fork's 2020 flow appears as “No recent reading” with the old value in secondary text and the year visible; current height remains usable. Historic 1993 dates include 1993. Old/delayed/invalid flow has no reference comparison. No-value observations say unavailable.
+- **Clock and refresh:** Age labels advance every 30 seconds without network responses. Manual refresh disables the button while pending. Focus/visible-tab return refresh polling resources; failed refresh retains measurement and check times. Unmount removes listeners/timers; disabled/historical gauges make no request on mount, focus, retry, or poll.
+- **Station identity:** Show official station names for primary and extra gauges. Clark Fork uses 12340500, Blackfoot uses 12340000, neither inherits the previous gauge's range. South Holston has no unrelated gauge, no null-ID API request/link, and links to TVA releases. Au Sable/Letort explain historical status. Additional stations remain selectable even after a load failure; show the selected station's own notes.
+- **Browser check:** At desktop and 390px, verify old-flow/current-height, delayed flow, empty station, and manual refresh states fit. Check historical/unconfigured corridors do not request USGS. A real-network Yellow Breeches response should have no app-cache header and an observation time separate from check time; do not assert that USGS always has observations newer than one hour.
+
+Automated coverage: `river-freshness.test.js`, `river-freshness-ui.test.js`, and extensions to `river-api.test.js` / `conditions-ui.test.js`. Fixture browser checks exercise display states; live upstream timestamps are observations, not a deterministic test contract.

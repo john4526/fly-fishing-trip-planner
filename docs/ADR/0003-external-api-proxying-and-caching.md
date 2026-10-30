@@ -11,9 +11,9 @@ Missing measurements remain null. Forecast rain probability is not a precipitati
 USGS readings are selected by parameter and measurement time, not response order. Missing or unrecognized values are unavailable. A newer unrelated parameter cannot refresh the flow timestamp.
 
 ## Consequences
-- River fetches are cached five minutes, weather fifteen minutes, NWS grid metadata one day, and Places reviews one day.
-- Browser polling refreshes river and weather data while canceling obsolete requests. Failed refreshes keep previous values with an explicit error.
+- River requests await USGS v1 with `cache: no-store` and return `Cache-Control: no-store`. The former five-minute revalidation policy could return an expired reading first after idle. The browser still polls every five minutes; multiple clients are not coalesced. Weather is cached fifteen minutes, NWS grid metadata one day, and Places reviews one day.
+- Browser polling and tab-return refresh update river and weather data while canceling obsolete requests. River has a manual refresh. Failed refreshes keep previous values and original timestamps with an explicit error. Successful `checkedAt` never replaces either measurement timestamp. Local age labels continue updating between requests.
 - The browser still loads map tiles and boundaries directly. Proxying conditions does not make maps available offline.
 - Provider availability, rate limits, and usage terms remain operational constraints. No fabricated fallback data is returned.
 
-Contracts: [USGS](https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous), [Open-Meteo](https://open-meteo.com/en/docs), [NWS](https://www.weather.gov/documentation/services-web-api).
+Contracts: [USGS](https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous), [Open-Meteo](https://open-meteo.com/en/docs), [NWS](https://www.weather.gov/documentation/services-web-api).

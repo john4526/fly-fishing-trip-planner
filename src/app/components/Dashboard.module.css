@@ -935,6 +935,30 @@
 .weatherContent { display: flex; flex-direction: column; gap: 1.25rem; }
 .weatherTimestamp { font-size: .8rem; line-height: 1.5; color: var(--text-muted); }
 .weatherTimestamp a { text-decoration: underline; }
+.gaugePanel { gap: .75rem; }
+.gaugePanel .weatherTimestamp, .gaugePanel .observationRecent { color: #536579; }
+.gaugePanel a { color: #14566a; text-underline-offset: 3px; }
+.gaugeHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: .5rem; }
+.gaugeHeading .cardTitle { margin: 0; }
+.gaugeRefresh { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; padding: .5rem .75rem; border: 1px solid var(--border-card); border-radius: 6px; background: var(--bg-page); color: var(--text-main); cursor: pointer; }
+.gaugeRefresh:hover { background: var(--bg-card); }
+.gaugeRefresh:disabled { opacity: .65; cursor: wait; }
+.gaugeRefresh:focus-visible, .gaugeSelect select:focus-visible { outline: 2px solid var(--color-primary-hover); outline-offset: 3px; }
+.gaugeSelect { display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem; font-size: .85rem; }
+.gaugeSelect select { min-height: 44px; padding: .5rem; border: 1px solid var(--border-card); border-radius: 6px; background: var(--bg-page); color: var(--text-main); width: 100%; }
+.gaugeStation { font-weight: 650; margin-bottom: .5rem; }
+.gaugeMessage, .gaugeError { margin: 1rem 0; line-height: 1.5; }
+.gaugeError, .observationDelayed { color: #875019; }
+.observationGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }
+.observation h3 { font-size: .9rem; font-weight: 600; margin-bottom: .5rem; }
+.observation p { margin-top: .4rem; font-size: .85rem; line-height: 1.5; }
+.observationValue { display: block; font-size: 1.4rem; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.observationRecent { color: var(--text-muted); }
+.gaugeComparison { margin-bottom: 1rem; font-size: .85rem; }
+.gaugeComparison p { margin-bottom: .5rem; }
+@media (max-width: 520px) {
+  .observationGrid { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+}
 .weatherDetailsGrid dt { font-size: .8rem; color: var(--text-muted); }
 .weatherDetailsGrid dd { margin: .3rem 0 0; font-size: .9rem; }
 .dailyForecast { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: .5rem; margin-top: .75rem; }

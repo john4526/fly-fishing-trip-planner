@@ -43,3 +43,25 @@ it('validates gauge IDs and bounds upstream requests', async () => {
   global.fetch.mockRejectedValue(new Error('timeout'));
   expect((await GET(new Request(`http://localhost/api/river?siteId=${siteId}`))).status).toBe(502);
 });
+
+it('awaits an uncached v1 response on every request and distinguishes checkedAt from measurement time', async () => {
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [feature('00060', 100, old)] }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ features: [feature('00060', 200, recent)] }) });
+  const first = await GET(new Request(`http://localhost/api/river?siteId=${siteId}`));
+  const firstData = await first.json();
+  const second = await GET(new Request(`http://localhost/api/river?siteId=${siteId}`));
+  const secondData = await second.json();
+  expect(first.headers.get('Cache-Control')).toBe('no-store');
+  expect(firstData.flowTimestamp).toBe(old);
+  expect(firstData.checkedAt).not.toBe(old);
+  expect(Number.isFinite(Date.parse(firstData.checkedAt))).toBe(true);
+  expect(secondData).toMatchObject({ flow: 200, flowTimestamp: recent });
+  expect(global.fetch).toHaveBeenCalledTimes(2);
+  for (const [url, options] of global.fetch.mock.calls) {
+    expect(new URL(url).pathname).toBe('/ogcapi/v1/collections/latest-continuous/items');
+    expect(new URL(url).searchParams.get('parameter_code')).toBe('00060,00065');
+    expect(options.cache).toBe('no-store');
+    expect(options.next).toBeUndefined();
+  }
+});
